@@ -14,20 +14,27 @@ from pathlib import Path
 from datetime import timedelta
 import os
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ens64pi1+5n@opsz@w#x4$6^==4g&sg@)2(7=dn=s70p78(51h'
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-only-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").strip().lower() in ("1", "true", "yes", "on")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -101,14 +108,10 @@ WSGI_APPLICATION = 'park_guide.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 import dj_database_url
-import os
-
-# ... existing code ...
 
 DATABASES = {
     'default': dj_database_url.config(
-        # Replace the URL below with the one you copied from Neon
-        default=os.getenv('DATABASE_URL', 'postgresql://neondb_owner:npg_gw4GMQWlhoa1@ep-small-wildflower-amd0hnxp.c-5.us-east-1.aws.neon.tech/pga_db?sslmode=require'),
+        default=os.getenv('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
         ssl_require=True
     )
 }
@@ -168,6 +171,9 @@ FIREBASE_STORAGE_BUCKET = os.getenv(
 
 # 2. Path to your JSON (Matches your directory structure)
 FIREBASE_SERVICE_ACCOUNT_PATH = os.path.join(
-    BASE_DIR, 
-    'secrets/parkguideapp-c8517-firebase-adminsdk-fbsvc-63e7ac625a.json'
+    BASE_DIR,
+    os.getenv(
+        'FIREBASE_SERVICE_ACCOUNT_PATH',
+        'secrets/parkguideapp-c8517-firebase-adminsdk-fbsvc-b9b06c918e.json'
+    )
 )
