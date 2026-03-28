@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Badge, UserBadge
 
 
@@ -8,9 +9,11 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
     earned = serializers.SerializerMethodField()
     pending = serializers.SerializerMethodField()
     rejected = serializers.SerializerMethodField()
+    in_progress = serializers.SerializerMethodField()
     eligible = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     completed_modules = serializers.SerializerMethodField()
+    completed_badges = serializers.SerializerMethodField()
 
     class Meta:
         model = Badge
@@ -21,12 +24,16 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
             'course_id',
             'course_title',
             'required_completed_modules',
+            'is_major_badge',
+            'required_badges_count',
             'status',
             'earned',
             'pending',
             'rejected',
+            'in_progress',
             'eligible',
             'completed_modules',
+            'completed_badges',
         ]
 
     def get_course_title(self, obj):
@@ -46,6 +53,10 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
         status = self.get_status(obj)
         return status == UserBadge.STATUS_REJECTED
 
+    def get_in_progress(self, obj):
+        status = self.get_status(obj)
+        return status == UserBadge.STATUS_IN_PROGRESS
+
     def get_status(self, obj):
         status_map = self.context.get('status_map', {})
         return status_map.get(obj.id)
@@ -54,15 +65,22 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
         completed_count_map = self.context.get('completed_count_map', {})
         return completed_count_map.get(obj.id, 0)
 
+    def get_completed_badges(self, obj):
+        completed_badge_count_map = self.context.get('completed_badge_count_map', {})
+        return completed_badge_count_map.get(obj.id, 0)
+
     def get_eligible(self, obj):
-        completed = self.get_completed_modules(obj)
-        return completed >= obj.required_completed_modules
+        if obj.is_major_badge:
+            return self.get_completed_badges(obj) >= obj.required_badges_count
+        return self.get_completed_modules(obj) >= obj.required_completed_modules
 
 
 class UserBadgeSerializer(serializers.ModelSerializer):
     badge_name = serializers.CharField(source='badge.name', read_only=True)
     badge_description = serializers.CharField(source='badge.description', read_only=True)
     badge_required_completed_modules = serializers.IntegerField(source='badge.required_completed_modules', read_only=True)
+    badge_required_badges_count = serializers.IntegerField(source='badge.required_badges_count', read_only=True)
+    badge_is_major_badge = serializers.BooleanField(source='badge.is_major_badge', read_only=True)
     badge_course_id = serializers.IntegerField(source='badge.course.id', read_only=True)
     badge_course_title = serializers.SerializerMethodField()
 
@@ -74,6 +92,8 @@ class UserBadgeSerializer(serializers.ModelSerializer):
             'badge_name',
             'badge_description',
             'badge_required_completed_modules',
+            'badge_required_badges_count',
+            'badge_is_major_badge',
             'badge_course_id',
             'badge_course_title',
             'status',

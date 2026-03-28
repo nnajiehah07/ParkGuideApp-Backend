@@ -1,0 +1,963 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="dashboard-shell">
+    <section class="dashboard-hero">
+        <div class="hero-copy">
+            <span class="hero-kicker">Operations Console</span>
+            <h1>SFC Admin Dashboard</h1>
+            <p>
+                Track approvals, learner movement, course health, and the main admin workspaces from one cleaner overview.
+            </p>
+            <div class="hero-actions">
+                <a href="{% url 'admin:user_progress_courseprogressrecord_changelist' %}" class="hero-action primary">Open learner progress</a>
+                <a href="{% url 'admin:user_progress_userbadge_changelist' %}?status__exact=pending" class="hero-action secondary">Review pending badges</a>
+                <a href="{% url 'admin:notifications_notification_add' %}" class="hero-action tertiary">Send notification</a>
+            </div>
+        </div>
+        <div class="hero-aside">
+            <div class="hero-mini-card">
+                <span>Staff users</span>
+                <strong>{{ user_snapshot.staff_users }}</strong>
+            </div>
+            <div class="hero-mini-card">
+                <span>Inactive users</span>
+                <strong>{{ user_snapshot.inactive_users }}</strong>
+            </div>
+            <div class="hero-mini-card">
+                <span>New this week</span>
+                <strong>{{ user_snapshot.new_this_week }}</strong>
+            </div>
+            <div class="hero-mini-card">
+                <span>Unread alerts</span>
+                <strong>{{ dashboard_cards.3.value }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-main-grid">
+        <div class="dashboard-main-column">
+            <section class="dashboard-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Immediate focus</span>
+                        <h2>Priority queue</h2>
+                    </div>
+                </div>
+                <div class="priority-grid">
+                    {% for item in urgent_actions %}
+                    <a class="priority-card priority-card-{{ item.tone }}" href="{{ item.url }}">
+                        <span class="priority-label">{{ item.label }}</span>
+                        <strong class="priority-value">{{ item.value }}</strong>
+                        <span class="priority-copy">{{ item.detail }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Workspace shortcuts</span>
+                        <h2>Core admin spaces</h2>
+                    </div>
+                </div>
+                <div class="shortcut-grid">
+                    {% for link in dashboard_links %}
+                    <a class="shortcut-card" href="{{ link.url }}">
+                        <strong>{{ link.label }}</strong>
+                        <span>{{ link.description }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Navigate faster</span>
+                        <h2>Routes by task</h2>
+                    </div>
+                </div>
+                <div class="route-groups">
+                    {% for group in quick_routes %}
+                    <div class="route-group">
+                        <div class="route-group-head">
+                            <h3>{{ group.group }}</h3>
+                        </div>
+                        <div class="route-list">
+                            {% for item in group.items %}
+                            <a class="route-card" href="{{ item.url }}">
+                                <strong>{{ item.label }}</strong>
+                                <span>{{ item.meta }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Core areas</span>
+                        <h2>Workspaces</h2>
+                    </div>
+                </div>
+                <div class="workspace-grid">
+                    {% for section in workspace_sections %}
+                    <div class="workspace-card">
+                        <div class="workspace-card-head">
+                            <h3>{{ section.title }}</h3>
+                        </div>
+                        <div class="workspace-card-body">
+                            {% for item in section.items %}
+                            <a class="workspace-model" href="{{ item.url }}">
+                                <span>{{ item.label }}</span>
+                                <small>{{ item.description }}</small>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Course performance</span>
+                        <h2>Top course insights</h2>
+                    </div>
+                </div>
+                <div class="course-insight-list">
+                    {% for item in top_course_insights %}
+                    <div class="course-insight-row">
+                        <div class="course-insight-head">
+                            <strong>{{ item.course.title.en|default:"Untitled Course" }}</strong>
+                            <span>{{ item.module_count }} modules • {{ item.learners }} learners</span>
+                        </div>
+                        <div class="course-insight-metrics">
+                            <div class="mini-meter">
+                                <div class="mini-meter-top">
+                                    <span>Completion</span>
+                                    <strong>{{ item.completion_rate }}%</strong>
+                                </div>
+                                <div class="stack-track">
+                                    <span class="stack-fill stack-fill-green" style="width: {{ item.completion_rate }}%;"></span>
+                                </div>
+                            </div>
+                            <div class="mini-meter">
+                                <div class="mini-meter-top">
+                                    <span>Average progress</span>
+                                    <strong>{{ item.avg_progress }}%</strong>
+                                </div>
+                                <div class="stack-track">
+                                    <span class="stack-fill stack-fill-blue" style="width: {{ item.avg_progress }}%;"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="empty-copy">No course data available yet.</p>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <aside class="dashboard-side-column">
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">At a glance</span>
+                        <h2>Key totals</h2>
+                    </div>
+                </div>
+                <div class="stats-grid">
+                    {% for card in dashboard_cards %}
+                    <a class="stat-card" href="{{ card.url }}">
+                        <span class="stat-card-label">{{ card.title }}</span>
+                        <strong class="stat-card-value">{{ card.value }}</strong>
+                        <span class="stat-card-copy">{{ card.subtitle }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Watchlist</span>
+                        <h2>Keep this moving</h2>
+                    </div>
+                </div>
+                <div class="watchlist">
+                    {% for item in admin_watchlist %}
+                    <a class="watch-item" href="{{ item.url }}">
+                        <div>
+                            <strong>{{ item.title }}</strong>
+                            <span>{{ item.subtitle }}</span>
+                        </div>
+                        <b>{{ item.value }}</b>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Progress overview</span>
+                        <h2>Training health</h2>
+                    </div>
+                </div>
+                <div class="analytics-grid">
+                    {% for chart in dashboard_chart_panels %}
+                    <div class="analytics-card">
+                        <div class="analytics-ring analytics-ring-{{ chart.tone }}" style="--value: {{ chart.percent }}%;">
+                            <div class="analytics-ring-inner">
+                                <strong>{{ chart.value }}</strong>
+                                <span>{{ chart.title }}</span>
+                            </div>
+                        </div>
+                        <div class="analytics-copy">
+                            <h3>{{ chart.title }}</h3>
+                            <p>{{ chart.subtitle }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Operational breakdowns</span>
+                        <h2>Badge and notification health</h2>
+                    </div>
+                </div>
+                <div class="breakdown-grid single-column">
+                    <div class="breakdown-card">
+                        <div class="breakdown-head">
+                            <h3>Badge pipeline</h3>
+                            <span>Current award distribution</span>
+                        </div>
+                        <div class="stack-bars">
+                            {% for item in badge_breakdown %}
+                            <div class="stack-row">
+                                <div class="stack-row-top">
+                                    <strong>{{ item.label }}</strong>
+                                    <span>{{ item.value }} • {{ item.percent }}%</span>
+                                </div>
+                                <div class="stack-track">
+                                    <span class="stack-fill stack-fill-{{ item.tone }}" style="width: {{ item.percent }}%;"></span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="breakdown-card">
+                        <div class="breakdown-head">
+                            <h3>Notification engagement</h3>
+                            <span>Read vs unread delivery entries</span>
+                        </div>
+                        <div class="stack-bars">
+                            {% for item in notification_breakdown %}
+                            <div class="stack-row">
+                                <div class="stack-row-top">
+                                    <strong>{{ item.label }}</strong>
+                                    <span>{{ item.value }} • {{ item.percent }}%</span>
+                                </div>
+                                <div class="stack-track">
+                                    <span class="stack-fill stack-fill-{{ item.tone }}" style="width: {{ item.percent }}%;"></span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Recent learners</span>
+                        <h2>Newest signups</h2>
+                    </div>
+                </div>
+                <ul class="activity-list compact-list">
+                    {% for item in recent_learners %}
+                    <li>
+                        <strong>{% firstof item.get_full_name item.username item.email %}</strong>
+                        <span>{{ item.email }} • joined {{ item.date_joined|date:"M j, Y H:i" }}</span>
+                    </li>
+                    {% empty %}
+                    <li><span>No learner signups yet.</span></li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Training snapshot</span>
+                        <h2>Content inventory</h2>
+                    </div>
+                </div>
+                <ul class="metric-list">
+                    <li><span>Courses</span><strong>{{ content_snapshot.courses }}</strong></li>
+                    <li><span>Modules</span><strong>{{ content_snapshot.modules }}</strong></li>
+                    <li><span>Active badges</span><strong>{{ content_snapshot.badges }}</strong></li>
+                    <li><span>Notifications</span><strong>{{ content_snapshot.notifications }}</strong></li>
+                </ul>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Latest updates</span>
+                        <h2>Recent notifications</h2>
+                    </div>
+                </div>
+                <ul class="activity-list">
+                    {% for item in recent_notifications %}
+                    <li>
+                        <strong>{{ item.title }}</strong>
+                        <span>{{ item.sent_at|date:"M j, Y H:i" }}{% if item.created_by %} by {{ item.created_by }}{% endif %}</span>
+                    </li>
+                    {% empty %}
+                    <li><span>No notifications yet.</span></li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Protected content</span>
+                        <h2>Recent uploads</h2>
+                    </div>
+                </div>
+                <ul class="activity-list">
+                    {% for item in recent_uploads %}
+                    <li>
+                        <strong>{{ item.original_name }}</strong>
+                        <span>{{ item.owner }} • {{ item.uploaded_at|date:"M j, Y H:i" }}</span>
+                    </li>
+                    {% empty %}
+                    <li><span>No files uploaded yet.</span></li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="dashboard-panel compact-panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">Approval flow</span>
+                        <h2>Recent badge activity</h2>
+                    </div>
+                </div>
+                <ul class="activity-list">
+                    {% for item in recent_badges %}
+                    <li>
+                        <strong>{{ item.badge.name }}</strong>
+                        <span>{{ item.user }} • {{ item.get_status_display }}</span>
+                    </li>
+                    {% empty %}
+                    <li><span>No badge activity yet.</span></li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </aside>
+    </section>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    @keyframes dashboard-fade-up {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes dashboard-sheen {
+        from {
+            transform: translateX(-140%) skewX(-18deg);
+        }
+        to {
+            transform: translateX(190%) skewX(-18deg);
+        }
+    }
+
+    .dashboard-shell {
+        display: grid;
+        gap: 24px;
+    }
+
+    .dashboard-shell a,
+    .dashboard-shell a:link,
+    .dashboard-shell a:visited,
+    .dashboard-shell a:hover {
+        text-decoration: none;
+    }
+
+    .dashboard-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(280px, 360px);
+        gap: 18px;
+        padding: 30px;
+        border-radius: 28px;
+        background: linear-gradient(135deg, #1a4a3a 0%, #245844 58%, #74b38f 100%);
+        color: #fff;
+        box-shadow: 0 24px 56px rgba(23, 56, 45, 0.16);
+        animation: dashboard-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hero-copy,
+    .hero-aside,
+    .dashboard-main-column,
+    .dashboard-side-column,
+    .dashboard-panel,
+    .priority-card,
+    .shortcut-card,
+    .route-card,
+    .workspace-card,
+    .workspace-model,
+    .watch-item,
+    .stat-card,
+    .analytics-card,
+    .breakdown-card,
+    .course-insight-row {
+        min-width: 0;
+    }
+
+    .hero-kicker,
+    .section-kicker {
+        display: inline-block;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+
+    .hero-kicker {
+        color: #f7d998;
+    }
+
+    .dashboard-hero h1 {
+        margin: 0;
+        max-width: 10ch;
+        font-size: clamp(2.2rem, 4vw, 3.6rem);
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+    }
+
+    .dashboard-hero p {
+        margin: 16px 0 0;
+        max-width: 58ch;
+        color: rgba(255, 255, 255, 0.84);
+        line-height: 1.7;
+    }
+
+    .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .hero-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font-weight: 800;
+        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hero-action:hover {
+        transform: translateY(-2px);
+    }
+
+    .hero-action:active {
+        transform: translateY(0);
+    }
+
+    .hero-action.primary {
+        background: linear-gradient(135deg, var(--sfc-gold), #efc86a);
+        color: var(--sfc-green-950);
+    }
+
+    .hero-action.secondary,
+    .hero-action.tertiary {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #fff;
+    }
+
+    .hero-aside {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        align-content: start;
+    }
+
+    .hero-mini-card {
+        padding: 18px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), background-color 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hero-mini-card:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.16);
+    }
+
+    .hero-mini-card span {
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .hero-mini-card strong {
+        display: block;
+        margin-top: 10px;
+        font-size: 2rem;
+        line-height: 1;
+    }
+
+    .dashboard-main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.95fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .dashboard-main-column,
+    .dashboard-side-column {
+        display: grid;
+        gap: 24px;
+        align-content: start;
+    }
+
+    .dashboard-panel {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid var(--sfc-line);
+        border-radius: 22px;
+        box-shadow: 0 16px 34px -24px rgba(19, 42, 33, 0.18);
+        padding: 22px;
+        animation: dashboard-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .dashboard-panel:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 24px 44px -28px rgba(19, 42, 33, 0.22);
+    }
+
+    .compact-panel {
+        padding: 20px;
+    }
+
+    .section-heading {
+        margin-bottom: 16px;
+    }
+
+    .section-heading h2,
+    .route-group-head h3,
+    .workspace-card-head h3,
+    .breakdown-head h3,
+    .analytics-copy h3 {
+        margin: 0;
+        color: var(--sfc-ink);
+        letter-spacing: -0.02em;
+    }
+
+    .priority-grid,
+    .shortcut-grid,
+    .route-groups,
+    .stats-grid,
+    .analytics-grid,
+    .workspace-grid,
+    .breakdown-grid,
+    .course-insight-list,
+    .activity-list,
+    .metric-list,
+    .watchlist,
+    .route-list,
+    .workspace-card-body,
+    .stack-bars,
+    .course-insight-metrics {
+        display: grid;
+        gap: 14px;
+    }
+
+    .priority-grid,
+    .shortcut-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .route-groups,
+    .workspace-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-grid,
+    .breakdown-grid.single-column {
+        grid-template-columns: 1fr;
+    }
+
+    .priority-card,
+    .shortcut-card,
+    .route-card,
+    .workspace-model,
+    .watch-item,
+    .stat-card,
+    .analytics-card,
+    .breakdown-card,
+    .course-insight-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border: 1px solid var(--sfc-line);
+        border-radius: 18px;
+        background: #fff;
+        padding: 18px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .priority-card::after,
+    .shortcut-card::after,
+    .route-card::after,
+    .workspace-model::after,
+    .watch-item::after,
+    .stat-card::after,
+    .analytics-card::after,
+    .breakdown-card::after,
+    .course-insight-row::after {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 -30%;
+        width: 24%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .priority-card:hover,
+    .shortcut-card:hover,
+    .route-card:hover,
+    .workspace-model:hover,
+    .watch-item:hover,
+    .stat-card:hover,
+    .analytics-card:hover,
+    .breakdown-card:hover,
+    .course-insight-row:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 34px -22px rgba(19, 42, 33, 0.18);
+        border-color: rgba(20, 61, 48, 0.16);
+    }
+
+    .priority-card:hover::after,
+    .shortcut-card:hover::after,
+    .route-card:hover::after,
+    .workspace-model:hover::after,
+    .watch-item:hover::after,
+    .stat-card:hover::after,
+    .analytics-card:hover::after,
+    .breakdown-card:hover::after,
+    .course-insight-row:hover::after {
+        opacity: 1;
+        animation: dashboard-sheen 760ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .priority-card {
+        min-height: 152px;
+        justify-content: space-between;
+    }
+
+    .shortcut-card {
+        min-height: 124px;
+        justify-content: flex-start;
+    }
+
+    .priority-card-red {
+        background: linear-gradient(135deg, rgba(212, 99, 87, 0.1), #ffffff 68%);
+    }
+
+    .priority-card-gold {
+        background: linear-gradient(135deg, rgba(220, 166, 58, 0.12), #ffffff 68%);
+    }
+
+    .priority-card-blue {
+        background: linear-gradient(135deg, rgba(83, 137, 214, 0.12), #ffffff 68%);
+    }
+
+    .priority-label,
+    .stat-card-label {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--sfc-muted);
+    }
+
+    .priority-value,
+    .stat-card-value {
+        font-size: 2rem;
+        line-height: 1;
+        color: var(--sfc-ink);
+    }
+
+    .priority-copy,
+    .stat-card-copy,
+    .route-card span,
+    .shortcut-card span,
+    .workspace-model small,
+    .watch-item span,
+    .analytics-copy p,
+    .stack-row-top span,
+    .metric-list span,
+    .activity-list span,
+    .course-insight-head span,
+    .empty-copy,
+    .breakdown-head span {
+        color: var(--sfc-muted);
+        line-height: 1.55;
+    }
+
+    .route-card strong,
+    .shortcut-card strong,
+    .workspace-model span,
+    .watch-item strong,
+    .course-insight-head strong {
+        color: var(--sfc-ink);
+        font-size: 15px;
+        line-height: 1.35;
+    }
+
+    .watch-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .watch-item b {
+        font-size: 1.35rem;
+        line-height: 1;
+        color: var(--sfc-ink);
+    }
+
+    .analytics-card {
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr);
+        align-items: center;
+        gap: 16px;
+    }
+
+    .analytics-ring {
+        --ring-fill: var(--sfc-green-700);
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        background:
+            radial-gradient(closest-side, #fff 72%, transparent 73% 100%),
+            conic-gradient(var(--ring-fill) var(--value), rgba(16, 43, 34, 0.08) 0);
+        display: grid;
+        place-items: center;
+        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .analytics-card:hover .analytics-ring {
+        transform: scale(1.03);
+    }
+
+    .analytics-ring-green { --ring-fill: var(--sfc-green-700); }
+    .analytics-ring-blue { --ring-fill: var(--sfc-blue-500); }
+    .analytics-ring-gold { --ring-fill: var(--sfc-gold); }
+
+    .analytics-ring-inner {
+        display: grid;
+        place-items: center;
+        text-align: center;
+    }
+
+    .analytics-ring-inner strong {
+        font-size: 1.4rem;
+        line-height: 1;
+        color: var(--sfc-ink);
+    }
+
+    .analytics-ring-inner span {
+        margin-top: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--sfc-muted);
+    }
+
+    .stack-row,
+    .mini-meter,
+    .course-insight-head,
+    .breakdown-head,
+    .mini-meter-top,
+    .stack-row-top {
+        display: grid;
+        gap: 6px;
+    }
+
+    .stack-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(20, 61, 48, 0.09);
+    }
+
+    .stack-fill {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .stack-fill-green { background: linear-gradient(135deg, var(--sfc-green-700), var(--sfc-green-500)); }
+    .stack-fill-blue { background: linear-gradient(135deg, #4577bf, var(--sfc-blue-500)); }
+    .stack-fill-gold { background: linear-gradient(135deg, #c99224, var(--sfc-gold)); }
+    .stack-fill-red { background: linear-gradient(135deg, #c24e41, var(--sfc-red-500)); }
+
+    .metric-list,
+    .activity-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .metric-list li,
+    .activity-list li {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--sfc-line);
+    }
+
+    .metric-list li:first-child,
+    .activity-list li:first-child {
+        padding-top: 0;
+    }
+
+    .metric-list li:last-child,
+    .activity-list li:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .workspace-card {
+        height: 100%;
+    }
+
+    .workspace-card-body {
+        margin-top: 14px;
+    }
+
+    .workspace-model {
+        padding: 14px 16px;
+    }
+
+    .dashboard-main-column > .dashboard-panel:nth-child(1) { animation-delay: 40ms; }
+    .dashboard-main-column > .dashboard-panel:nth-child(2) { animation-delay: 80ms; }
+    .dashboard-main-column > .dashboard-panel:nth-child(3) { animation-delay: 120ms; }
+    .dashboard-main-column > .dashboard-panel:nth-child(4) { animation-delay: 160ms; }
+    .dashboard-main-column > .dashboard-panel:nth-child(5) { animation-delay: 200ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(1) { animation-delay: 60ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(2) { animation-delay: 100ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(3) { animation-delay: 140ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(4) { animation-delay: 180ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(5) { animation-delay: 220ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(6) { animation-delay: 260ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(7) { animation-delay: 300ms; }
+    .dashboard-side-column > .dashboard-panel:nth-child(8) { animation-delay: 340ms; }
+
+    @media (max-width: 1180px) {
+        .dashboard-main-grid,
+        .dashboard-hero,
+        .priority-grid,
+        .shortcut-grid,
+        .route-groups,
+        .workspace-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .dashboard-main-grid,
+        .dashboard-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 860px) {
+        .dashboard-shell {
+            gap: 18px;
+        }
+
+        .dashboard-hero,
+        .dashboard-panel {
+            padding: 20px;
+        }
+
+        .hero-aside,
+        .priority-grid,
+        .shortcut-grid,
+        .route-groups,
+        .workspace-grid,
+        .stats-grid,
+        .analytics-card {
+            grid-template-columns: 1fr;
+        }
+
+        .analytics-card {
+            gap: 12px;
+        }
+
+        .analytics-ring {
+            margin: 0 auto;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+</style>
+{% endblock %}

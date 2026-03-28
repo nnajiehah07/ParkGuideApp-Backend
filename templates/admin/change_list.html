@@ -1,0 +1,140 @@
+{% extends "admin/change_list.html" %}
+
+{% block content_title %}
+<div class="section-header-modern">
+    <p class="section-kicker">Operational View</p>
+    <h1>{{ dashboard_title|default:title }}</h1>
+    {% if dashboard_description %}
+    <p class="section-copy">{{ dashboard_description }}</p>
+    {% endif %}
+</div>
+
+{% if dashboard_stats %}
+<section class="stats-grid-modern">
+    {% for item in dashboard_stats %}
+    <div class="stat-card-modern">
+        <span class="stat-label">{{ item.label }}</span>
+        <strong class="stat-value">{{ item.value }}</strong>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{{ block.super }}
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .section-header-modern {
+        background: linear-gradient(135deg, var(--sfc-primary), #234d3f);
+        padding: 40px;
+        border-radius: var(--sfc-radius);
+        color: white;
+        margin-bottom: 24px;
+        box-shadow: var(--sfc-shadow);
+    }
+
+    .section-kicker {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        opacity: 0.8;
+        margin-bottom: 8px;
+    }
+
+    .section-header-modern h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.15;
+        color: white;
+    }
+
+    .section-copy {
+        margin: 10px 0 0;
+        max-width: 62ch;
+        color: rgba(255, 255, 255, 0.82);
+        line-height: 1.6;
+    }
+
+    .stats-grid-modern {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card-modern {
+        background: var(--sfc-surface);
+        padding: 24px;
+        border-radius: var(--sfc-radius);
+        border: 1px solid var(--sfc-border);
+        box-shadow: var(--sfc-shadow);
+        transition: transform 0.2s ease;
+    }
+
+    .stat-card-modern:hover {
+        transform: translateY(-4px);
+    }
+
+    .stat-label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--sfc-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .stat-value {
+        font-size: 1.8rem;
+        color: var(--sfc-primary);
+        font-weight: 700;
+    }
+
+    body[data-theme="dark"] .stat-value {
+        color: var(--sfc-accent);
+    }
+
+    .section-header-modern {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .section-header-modern::after {
+        content: "";
+        position: absolute;
+        inset: auto -50px -50px auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 68%);
+        pointer-events: none;
+    }
+
+    .stats-grid-modern {
+        gap: 16px;
+    }
+
+    .stat-card-modern {
+        min-height: 108px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .stat-card-modern:hover {
+        box-shadow: 0 18px 32px -22px rgba(19, 42, 33, 0.34);
+    }
+
+    @media (max-width: 960px) {
+        .section-header-modern {
+            padding: 28px 22px;
+        }
+
+        .section-header-modern h1 {
+            font-size: 24px;
+        }
+    }
+</style>
+{% endblock %}

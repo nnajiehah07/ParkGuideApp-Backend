@@ -3,18 +3,22 @@ from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponseRedirect
 from django.urls import path, reverse
 
-from .services.firebase_storage import upload_file
+from park_guide.admin_mixins import DashboardStatsChangeListMixin
+
 from .models import SecureFile
+from .services.firebase_storage import upload_file
 
 
 @admin.register(SecureFile)
-class SecureFileAdmin(admin.ModelAdmin):
+class SecureFileAdmin(DashboardStatsChangeListMixin, admin.ModelAdmin):
     change_list_template = 'admin/secure_files/securefile/change_list.html'
     list_display = ('id', 'owner', 'original_name', 'size', 'uploaded_at')
     list_filter = ('uploaded_at',)
     search_fields = ('owner__email', 'owner__username', 'original_name', 's3_key')
     autocomplete_fields = ('owner',)
     readonly_fields = ('uploaded_at',)
+    dashboard_title = 'Secure Content Library'
+    dashboard_description = 'Manage protected training files and keep an eye on storage usage.'
 
     def get_urls(self):
         urls = super().get_urls()
@@ -60,3 +64,13 @@ class SecureFileAdmin(admin.ModelAdmin):
 
         self.message_user(request, f'Successfully uploaded {uploaded_count} file(s).', level=messages.SUCCESS)
         return HttpResponseRedirect(reverse('admin:secure_files_securefile_changelist'))
+
+    def get_dashboard_stats(self, request, queryset):
+        total = queryset.count()
+        storage = self.format_bytes(self.sum_bytes(queryset))
+        owners = queryset.values('owner').distinct().count()
+        return [
+            {'label': 'Files', 'value': total},
+            {'label': 'Stored', 'value': storage},
+            {'label': 'Owners', 'value': owners},
+        ]

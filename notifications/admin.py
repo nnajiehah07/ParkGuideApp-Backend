@@ -1,15 +1,20 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+
+from park_guide.admin_mixins import DashboardStatsChangeListMixin
 
 from .models import Notification, UserNotification
 
 
 @admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
+class NotificationAdmin(DashboardStatsChangeListMixin, admin.ModelAdmin):
     list_display = ('id', 'title', 'sent_at', 'created_by')
     search_fields = ('title', 'description', 'full_text')
     readonly_fields = ('sent_at',)
     actions = ('send_to_all_users',)
+    dashboard_title = 'Communications'
+    dashboard_description = 'Create announcements and keep outreach to park guide users organized.'
 
     def _deliver_to_app_users(self, notifications_queryset):
         User = get_user_model()
@@ -63,11 +68,30 @@ class NotificationAdmin(admin.ModelAdmin):
             level=messages.SUCCESS,
         )
 
+    def get_dashboard_stats(self, request, queryset):
+        today = timezone.localdate()
+        return [
+            {'label': 'Messages', 'value': queryset.count()},
+            {'label': 'Created today', 'value': queryset.filter(sent_at__date=today).count()},
+            {'label': 'Delivery rows', 'value': UserNotification.objects.count()},
+        ]
+
 
 @admin.register(UserNotification)
-class UserNotificationAdmin(admin.ModelAdmin):
+class UserNotificationAdmin(DashboardStatsChangeListMixin, admin.ModelAdmin):
     list_display = ('id', 'user', 'notification', 'is_read', 'read_at')
     list_filter = ('is_read', 'read_at')
     search_fields = ('user__email', 'user__username', 'notification__title')
     autocomplete_fields = ('user', 'notification')
     ordering = ('-notification__sent_at',)
+    dashboard_title = 'Notification Delivery'
+    dashboard_description = 'Follow read status and see which alerts still have not been opened.'
+
+    def get_dashboard_stats(self, request, queryset):
+        total = queryset.count()
+        unread = queryset.filter(is_read=False).count()
+        return [
+            {'label': 'Visible deliveries', 'value': total},
+            {'label': 'Unread', 'value': unread},
+            {'label': 'Read', 'value': total - unread},
+        ]

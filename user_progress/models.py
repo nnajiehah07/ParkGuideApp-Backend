@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
-from courses.models import ModuleProgress, CourseProgress
+
+from courses.models import CourseProgress, ModuleProgress
 
 
 class Badge(models.Model):
@@ -14,6 +15,8 @@ class Badge(models.Model):
         related_name='progress_badges',
     )
     required_completed_modules = models.PositiveIntegerField(default=1)
+    is_major_badge = models.BooleanField(default=False)
+    required_badges_count = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     auto_approve_when_eligible = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -23,6 +26,8 @@ class Badge(models.Model):
         ordering = ('required_completed_modules', 'name')
 
     def __str__(self):
+        if self.is_major_badge:
+            return f"{self.name} (major badge: {self.required_badges_count} badge requirement)"
         if self.course_id:
             course_title = self.course.title.get('en', 'Course')
             return f"{self.name} - {course_title} (>= {self.required_completed_modules} modules)"
@@ -30,10 +35,12 @@ class Badge(models.Model):
 
 
 class UserBadge(models.Model):
+    STATUS_IN_PROGRESS = 'in_progress'
     STATUS_PENDING = 'pending'
     STATUS_GRANTED = 'granted'
     STATUS_REJECTED = 'rejected'
     STATUS_CHOICES = (
+        (STATUS_IN_PROGRESS, 'In Progress'),
         (STATUS_PENDING, 'Pending'),
         (STATUS_GRANTED, 'Granted'),
         (STATUS_REJECTED, 'Rejected'),
@@ -41,7 +48,7 @@ class UserBadge(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='badge_progress')
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='user_badges')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_IN_PROGRESS)
     is_awarded = models.BooleanField(default=False)
     awarded_at = models.DateTimeField(auto_now_add=True)
     awarded_by = models.ForeignKey(
