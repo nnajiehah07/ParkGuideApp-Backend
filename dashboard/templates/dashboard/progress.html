@@ -1,0 +1,236 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Progress - Dashboard{% endblock %}
+{% block page_title %}📈 Learner Progress{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-card {
+        border-radius: 18px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        padding: 1.25rem;
+    }
+
+    .kpi-label {
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .kpi-value {
+        font-size: 1.9rem;
+        line-height: 1.1;
+        font-weight: 800;
+        margin-top: 0.35rem;
+        color: var(--text-main);
+    }
+
+    .progress-wrap {
+        min-width: 140px;
+    }
+
+    .progress.slim {
+        height: 8px;
+        background-color: rgba(45, 106, 79, 0.12);
+    }
+
+    .progress.slim .progress-bar {
+        background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    }
+
+    .status-pill {
+        border-radius: 999px;
+        padding: 0.35rem 0.7rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+
+    .status-complete {
+        color: #198754;
+        background: rgba(25, 135, 84, 0.12);
+        border-color: rgba(25, 135, 84, 0.25);
+    }
+
+    .status-nearly {
+        color: #b26a00;
+        background: rgba(255, 159, 28, 0.18);
+        border-color: rgba(255, 159, 28, 0.3);
+    }
+
+    .status-progress {
+        color: #0d6efd;
+        background: rgba(13, 110, 253, 0.12);
+        border-color: rgba(13, 110, 253, 0.25);
+    }
+
+    .status-none {
+        color: #6c757d;
+        background: rgba(108, 117, 125, 0.12);
+        border-color: rgba(108, 117, 125, 0.22);
+    }
+
+    [data-theme="dark"] .table thead th {
+        background: #111613;
+    }
+
+    [data-theme="dark"] .table tbody tr:hover {
+        background: rgba(82, 183, 136, 0.12);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 g-lg-4 mb-4">
+    <div class="col-md-4">
+        <div class="kpi-card h-100">
+            <div class="kpi-label">Average Progress</div>
+            <div class="kpi-value">{{ stats.avg_progress|floatformat:0 }}%</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card h-100">
+            <div class="kpi-label">In Progress</div>
+            <div class="kpi-value">{{ stats.in_progress_courses }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card h-100">
+            <div class="kpi-label">Completed</div>
+            <div class="kpi-value">{{ stats.completed_courses }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-lg-4">
+            <label class="form-label fw-semibold small text-uppercase">Search User</label>
+            <input type="text" name="search" class="form-control" placeholder="Username or email..." value="{{ search_query }}">
+        </div>
+        <div class="col-lg-3">
+            <label class="form-label fw-semibold small text-uppercase">Filter by Course</label>
+            <select name="course" class="form-select">
+                <option value="">All Courses</option>
+                {% for course in courses %}
+                    <option value="{{ course.id }}" {% if selected_course|stringformat:"i" == course.id|stringformat:"i" %}selected{% endif %}>
+                        {{ course.title.en|default:"Untitled" }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-3">
+            <label class="form-label fw-semibold small text-uppercase">Sort By</label>
+            <select name="sort" class="form-select">
+                <option value="-updated_at" {% if sort_by == '-updated_at' %}selected{% endif %}>Recently Updated</option>
+                <option value="-progress" {% if sort_by == '-progress' %}selected{% endif %}>Highest Progress</option>
+                <option value="progress" {% if sort_by == 'progress' %}selected{% endif %}>Lowest Progress</option>
+                <option value="user__username" {% if sort_by == 'user__username' %}selected{% endif %}>Username (A-Z)</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid gap-2 d-sm-flex justify-content-lg-end">
+            <button type="submit" class="btn btn-primary w-100">Filter</button>
+            {% if search_query or selected_course %}
+                <a href="{% url 'dashboard:progress' %}" class="btn btn-outline-secondary w-100">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="glass-card">
+    {% if progress %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Course</th>
+                        <th>Modules</th>
+                        <th>Progress</th>
+                        <th>Status</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in progress %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ item.user.username }}</div>
+                                <div class="small text-muted">{{ item.user.email }}</div>
+                            </td>
+                            <td class="fw-semibold">{{ item.course.title.en|default:"Untitled" }}</td>
+                            <td>
+                                <span class="fw-semibold">{{ item.completed_modules }}/{{ item.total_modules }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2 progress-wrap">
+                                    <div class="progress slim flex-grow-1">
+                                        <div class="progress-bar" style="width: {{ item.display_progress|default:0 }}%"></div>
+                                    </div>
+                                    <span class="fw-semibold small">{{ item.display_progress|floatformat:0 }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if item.completed %}
+                                    <span class="status-pill status-complete">Completed</span>
+                                {% elif item.display_progress >= 75 %}
+                                    <span class="status-pill status-nearly">Almost Done</span>
+                                {% elif item.display_progress > 0 %}
+                                    <span class="status-pill status-progress">In Progress</span>
+                                {% else %}
+                                    <span class="status-pill status-none">Not Started</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ item.updated_at|timesince }} ago</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if total_pages > 1 %}
+            <nav class="mt-4 d-flex justify-content-center">
+                <ul class="pagination mb-0">
+                    {% if current_page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_course %}&course={{ selected_course }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">First</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ current_page|add:'-1' }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_course %}&course={{ selected_course }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Prev</a>
+                        </li>
+                    {% endif %}
+
+                    {% for page_num in "x"|rjust:total_pages %}
+                        {% if page_num|stringformat:"i" == current_page|stringformat:"i" %}
+                            <li class="page-item active"><span class="page-link">{{ current_page }}</span></li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ forloop.counter }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_course %}&course={{ selected_course }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">{{ forloop.counter }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if current_page < total_pages %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ current_page|add:'1' }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_course %}&course={{ selected_course }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Next</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ total_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_course %}&course={{ selected_course }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Last</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-5">
+            <div class="display-6 mb-2">📊</div>
+            <p class="text-muted mb-0">No progress records found.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

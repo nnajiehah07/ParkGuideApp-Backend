@@ -1,0 +1,81 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Overview - SFC{% endblock %}
+{% block page_title %}System Overview{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-5">
+    <div class="col-xl-3 col-sm-6">
+        <div class="glass-card">
+            <div class="stat-icon bg-primary text-white"><i class="bi bi-people"></i></div>
+            <div class="text-muted small fw-bold">TOTAL USERS</div>
+            <div class="h2 fw-800 mb-0">{{ stats.total_users }}</div>
+            <div class="small mt-2 text-success"><i class="bi bi-arrow-up"></i> {{ stats.active_users }} active</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-sm-6">
+        <div class="glass-card">
+            <div class="stat-icon bg-info text-white"><i class="bi bi-journal-bookmark"></i></div>
+            <div class="text-muted small fw-bold">COURSES</div>
+            <div class="h2 fw-800 mb-0">{{ course_stats.total_courses }}</div>
+            <div class="small mt-2">{{ course_stats.total_modules }} total modules</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-sm-6">
+        <div class="glass-card">
+            <div class="stat-icon bg-warning text-white"><i class="bi bi-clock-history"></i></div>
+            <div class="text-muted small fw-bold">PENDING BADGES</div>
+            <div class="h2 fw-800 mb-0 text-warning">{{ badge_stats.pending_approvals }}</div>
+            <div class="small mt-2">Requires attention</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-sm-6">
+        <div class="glass-card">
+            <div class="stat-icon bg-success text-white"><i class="bi bi-percent"></i></div>
+            <div class="text-muted small fw-bold">AVG PROGRESS</div>
+            <div class="h2 fw-800 mb-0">{{ course_stats.avg_progress|floatformat:0 }}%</div>
+            <div class="small mt-2">Overall completion</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="h5 fw-bold mb-0">Recent Activity</h3>
+                <a href="#" class="btn btn-sm btn-light">View All</a>
+            </div>
+            <div class="timeline">
+                {% for activity in recent_activity %}
+                <div class="d-flex gap-3 mb-4">
+                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;">
+                        <i class="bi bi-lightning-charge text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold">{{ activity.description }}</div>
+                        <div class="text-muted small">{{ activity.timestamp|timesince }} ago</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="glass-card h-100 bg-primary text-white">
+            <h3 class="h5 fw-bold mb-3">Quick Actions</h3>
+            <div class="d-grid gap-2">
+                <a href="{% url 'dashboard:badges' %}" class="btn btn-light text-start py-3">
+                    <i class="bi bi-shield-check me-2"></i> Review Badge Requests
+                </a>
+                <a href="{% url 'dashboard:notifications' %}" class="btn btn-light text-start py-3">
+                    <i class="bi bi-megaphone me-2"></i> Send System Alert
+                </a>
+                <a href="{% url 'dashboard:users' %}" class="btn btn-light text-start py-3">
+                    <i class="bi bi-person-plus me-2"></i> Manage User Accounts
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Notifications - Dashboard{% endblock %}
+{% block page_title %}🔔 Notifications{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <div class="small text-muted fw-bold">TOTAL SENT</div>
+            <div class="display-6 fw-bold">{{ stats.total_notifications }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <div class="small text-muted fw-bold">UNREAD</div>
+            <div class="display-6 fw-bold text-warning">{{ stats.unread }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <div class="small text-muted fw-bold">THIS WEEK</div>
+            <div class="display-6 fw-bold">{{ stats.sent_this_week }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card mb-4">
+    <h5 class="fw-bold mb-3">Send Notification</h5>
+    <form method="post" class="row g-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_notification">
+        <div class="col-md-7">
+            <label class="form-label">Title</label>
+            <input type="text" name="title" class="form-control" required>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">Recipients</label>
+            <select name="target_user" class="form-select">
+                <option value="all">All active users</option>
+                {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }} ({{ user.email }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Short Description (optional)</label>
+            <input type="text" name="description" class="form-control" maxlength="255">
+        </div>
+        <div class="col-12">
+            <label class="form-label">Full Message</label>
+            <textarea name="full_text" class="form-control" rows="4" required></textarea>
+        </div>
+        <div class="col-12 text-end">
+            <button type="submit" class="btn btn-primary rounded-pill px-4">Send Notification</button>
+        </div>
+    </form>
+</div>
+
+<div class="glass-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <h5 class="fw-bold mb-0">All Notifications</h5>
+        <form method="get" class="d-flex align-items-center gap-2">
+            <label class="small text-uppercase fw-semibold text-muted mb-0">Status</label>
+            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All</option>
+                <option value="unread" {% if selected_status == 'unread' %}selected{% endif %}>Unread</option>
+                <option value="read" {% if selected_status == 'read' %}selected{% endif %}>Read</option>
+            </select>
+            {% if selected_status %}
+                <a href="{% url 'dashboard:notifications' %}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if notifications %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Recipient</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Sent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in notifications %}
+                        <tr>
+                            <td class="fw-semibold">{{ item.notification.title }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ item.user.get_full_name|default:item.user.username }}</div>
+                                <div class="small text-muted">{{ item.user.email }}</div>
+                            </td>
+                            <td>{{ item.notification.description|default:'-'|truncatechars:60 }}</td>
+                            <td>
+                                {% if item.is_read %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Read</span>
+                                {% else %}
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle">Unread</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ item.notification.sent_at|timesince }} ago</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if total_pages > 1 %}
+            <nav class="mt-4 d-flex justify-content-center">
+                <ul class="pagination mb-0">
+                    {% if current_page > 1 %}
+                        <li class="page-item"><a class="page-link" href="?page=1{% if selected_status %}&status={{ selected_status }}{% endif %}">First</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ current_page|add:'-1' }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Prev</a></li>
+                    {% endif %}
+                    {% for page_num in "x"|rjust:total_pages %}
+                        {% if page_num|stringformat:"i" == current_page|stringformat:"i" %}
+                            <li class="page-item active"><span class="page-link">{{ current_page }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="?page={{ forloop.counter }}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ forloop.counter }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if current_page < total_pages %}
+                        <li class="page-item"><a class="page-link" href="?page={{ current_page|add:'1' }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Next</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ total_pages }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Last</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-5">
+            <div class="display-6 mb-2">📭</div>
+            <p class="text-muted mb-0">No notifications found.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

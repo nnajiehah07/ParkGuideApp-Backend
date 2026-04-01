@@ -1,0 +1,106 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Courses - Dashboard{% endblock %}
+{% block page_title %}📚 Course Management{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <div class="small text-muted fw-bold">TOTAL COURSES</div>
+            <div class="display-6 fw-bold">{{ stats.total_courses }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <div class="small text-muted fw-bold">TOTAL MODULES</div>
+            <div class="display-6 fw-bold">{{ stats.total_modules }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <div class="small text-muted fw-bold">AVG MODULES / COURSE</div>
+            <div class="display-6 fw-bold">{{ stats.avg_modules_per_course|floatformat:1 }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="glass-card h-100">
+            <h5 class="fw-bold mb-3">Add Course</h5>
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_course">
+                <div class="col-12">
+                    <label class="form-label">Course Title (English)</label>
+                    <input type="text" name="title_en" class="form-control" placeholder="e.g. Visitor Safety Essentials" required>
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-success rounded-pill px-4">Create Course</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="glass-card h-100">
+            <h5 class="fw-bold mb-3">Add Module</h5>
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_module">
+                <div class="col-12">
+                    <label class="form-label">Course</label>
+                    <select name="course_id" class="form-select" required>
+                        <option value="">Select course</option>
+                        {% for course in all_courses %}
+                            <option value="{{ course.id }}">{{ course.title.en|default:"Untitled Course" }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Module Title (English)</label>
+                    <input type="text" name="module_title_en" class="form-control" placeholder="e.g. Wildlife Encounter Protocol" required>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Module Content (Optional)</label>
+                    <textarea name="module_content_en" class="form-control" rows="3" placeholder="Short module content..."></textarea>
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Add Module</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">All Courses</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Course</th>
+                    <th>Modules</th>
+                    <th>Enrollments</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                    <tr>
+                        <td class="fw-semibold">{{ course.title.en|default:"Untitled Course" }}</td>
+                        <td>{{ course.total_modules }}</td>
+                        <td>{{ course.total_enrollments }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">No courses found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

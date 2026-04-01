@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sarawak Forestry Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --primary-dark: #1b4332;
+            --accent: #f4a261;
+            --accent-dark: #e76f51;
+            --text: #1a1a1a;
+            --text-secondary: #666666;
+            --border: #e0e0e0;
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        html[data-theme="dark"] {
+            --primary: #40916c;
+            --text: #ffffff;
+            --text-secondary: #e0e0e0;
+            --border: #404040;
+            --bg: #1a1a1a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 50%, #f4a261 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 480px;
+            padding: 2rem;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg);
+            padding: 3rem 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(45, 106, 79, 0.2);
+        }
+
+        .login-logo img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .login-title {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .login-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .form-group label {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.85rem;
+        }
+
+        .form-group input {
+            padding: 1rem 1.25rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--text);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(45, 106, 79, 0.1);
+            background: white;
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .login-button {
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 20px rgba(45, 106, 79, 0.2);
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(45, 106, 79, 0.3);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, rgba(214, 40, 40, 0.1), rgba(255, 107, 107, 0.1));
+            color: #c41e3a;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            border-left: 4px solid #d62828;
+            font-weight: 500;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .login-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 700;
+            transition: color 0.2s;
+        }
+
+        .login-footer a:hover {
+            color: var(--primary-light);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 2rem 0;
+        }
+
+        .theme-toggle-small {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            font-size: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle-small:hover {
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 640px) {
+            .login-card {
+                padding: 2rem;
+            }
+
+            .login-title {
+                font-size: 1.75rem;
+            }
+
+            .form-group input {
+                padding: 0.875rem 1rem;
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle-small" onclick="toggleTheme()" title="Toggle dark mode">
+        <span id="themeIcon">🌙</span>
+    </button>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <img src="/images/icon.png" alt="Sarawak Forestry">
+                </div>
+                <h1 class="login-title">Sarawak<br>Forestry</h1>
+                <p class="login-subtitle">Admin Dashboard</p>
+            </div>
+
+            {% if form.non_field_errors %}
+                <div class="error-message">
+                    {{ form.non_field_errors.0 }}
+                </div>
+            {% endif %}
+
+            <form method="post" class="login-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="id_{{ form.username_field }}">Email / Username</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div style="color: #d62828; font-size: 0.85rem; font-weight: 500;">
+                            {{ form.username.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_password">Password</label>
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                        <div style="color: #d62828; font-size: 0.85rem; font-weight: 500;">
+                            {{ form.password.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="login-button">Sign in</button>
+            </form>
+
+            <div class="divider"></div>
+
+            <div class="login-footer">
+                For access issues, please contact your administrator.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            document.getElementById('themeIcon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        });
+    </script>
+</body>
+</html>
+
