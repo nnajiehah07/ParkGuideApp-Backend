@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'secure_files.apps.SecureFilesConfig',
     'notifications.apps.NotificationsConfig',
     'accounts',
+    'dashboard.apps.DashboardConfig',
     'rest_framework.authtoken',
 ]
 
@@ -179,9 +180,15 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
+    BASE_DIR / 'images',
 ]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
+
+# Auth redirect behavior for custom dashboard flow
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/dashboard/'
+LOGOUT_REDIRECT_URL = '/login/'
 
 
 if _env_bool('LOG_SQL_TIMING', default=False):
