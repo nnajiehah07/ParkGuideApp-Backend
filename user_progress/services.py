@@ -1,22 +1,17 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count
 from django.utils import timezone
-
 from courses.models import ModuleProgress
 from notifications.services import create_notification_for_staff, create_notification_for_user
-
 from .models import Badge, UserBadge
-
 
 def notify_badge_pending_for_admins(user_badge, admin_user=None):
     create_notification_for_staff(
         title=f'Badge approval needed: {user_badge.badge.name}',
         description=f'{user_badge.user.email} is ready for badge review.',
-        full_text=(
-            f'{user_badge.user.email} has met the requirement for "{user_badge.badge.name}" '
-            f'and is now pending approval.'
-        ),
+        full_text=(f'{user_badge.user.email} has met the requirement for "{user_badge.badge.name}" ' f'and is now pending approval.'),
         created_by=admin_user,
+        related_user=user_badge.user,
     )
 
 
@@ -25,11 +20,9 @@ def notify_badge_granted_to_user(user_badge, admin_user=None):
         user=user_badge.user,
         title=f'Badge granted: {user_badge.badge.name}',
         description='A badge has been awarded to your account.',
-        full_text=(
-            f'Congratulations. Your badge "{user_badge.badge.name}" has been granted'
-            f'{f" by {admin_user.email}" if admin_user else ""}.'
-        ),
+        full_text=(f'Congratulations.\nYour badge "{user_badge.badge.name}" has been granted' f'{f" by {admin_user.email}" if admin_user else ""}.'),
         created_by=admin_user,
+        related_user=user_badge.user,
     )
 
 

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -254,7 +254,9 @@
 
         .table-responsive {
             border-radius: 12px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
         }
 
         .table-responsive > .table {
@@ -434,6 +436,235 @@
             .theme-toggle-btn i {
                 font-size: 0.95rem;
             }
+
+            .top-bar {
+                overflow: visible;
+            }
+
+            .header-actions {
+                position: static;
+            }
+
+            .top-bar .dropdown {
+                position: static;
+            }
+
+            .notification-center-menu {
+                position: absolute !important;
+                top: calc(100% + 10px) !important;
+                right: auto !important;
+                left: 50% !important;
+                bottom: auto !important;
+                width: min(248px, calc(100vw - 1.5rem)) !important;
+                min-width: 0 !important;
+                max-width: 248px !important;
+                transform: translateX(-50%) !important;
+                margin-top: 0 !important;
+                border-radius: 14px;
+                z-index: 1055;
+            }
+
+            .notification-center-header {
+                padding: 0.75rem 0.85rem;
+            }
+
+            .notification-center-list {
+                max-height: 40vh;
+            }
+
+            .notification-center-item {
+                padding: 0.75rem 0.85rem;
+            }
+
+            .notification-center-title {
+                font-size: 0.88rem;
+            }
+
+            .notification-center-desc {
+                font-size: 0.78rem;
+            }
+
+            .notification-center-meta {
+                font-size: 0.7rem;
+            }
+        }
+        
+        .page-loader {
+            position: fixed;
+            inset: 0;
+            background: rgba(244, 247, 245, 0.78);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.18s ease, visibility 0.18s ease;
+        }
+
+        .page-loader.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .page-loader-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 1rem 1.25rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            min-width: 180px;
+            justify-content: center;
+        }
+
+        .page-loader-spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(45, 106, 79, 0.18);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: pageLoaderSpin 0.8s linear infinite;
+            flex: 0 0 22px;
+        }
+
+        .page-loader-text {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        body.is-loading {
+            cursor: progress;
+        }
+
+        @keyframes pageLoaderSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        [data-theme="dark"] .page-loader {
+            background: rgba(11, 15, 13, 0.72);
+        }
+
+        .notification-center-menu {
+            width: min(94vw, 430px);
+            background: var(--bg-card);
+            border: 1.5px solid rgba(120, 140, 132, 0.34);
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow:
+                0 18px 42px rgba(0, 0, 0, 0.20),
+                0 0 0 1px rgba(255, 255, 255, 0.04);
+            padding: 0;
+        }
+
+        [data-theme="light"] .notification-center-menu {
+            border-color: #cfd8d3;
+            box-shadow:
+                0 16px 36px rgba(27, 67, 50, 0.14),
+                0 0 0 1px rgba(255, 255, 255, 0.65);
+        }
+
+        [data-theme="dark"] .notification-center-menu {
+            border-color: #3a4741;
+            box-shadow:
+                0 22px 48px rgba(0, 0, 0, 0.42),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .notification-center-header {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+        }
+
+        .notification-center-list {
+            max-height: 420px;
+            overflow-y: auto;
+            background: var(--bg-card);
+        }
+
+        .notification-center-empty {
+            padding: 1rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .notification-center-item {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            padding: 0.95rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .notification-center-item:hover {
+            background: rgba(45, 106, 79, 0.06);
+        }
+
+        .notification-center-item.unread {
+            background: rgba(13, 110, 253, 0.05);
+        }
+
+        .notification-center-item:last-child {
+            border-bottom: none;
+        }
+
+        .notification-center-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            line-height: 1.35;
+            margin-bottom: 0.3rem;
+        }
+
+        .notification-center-desc {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            margin-bottom: 0.45rem;
+        }
+
+        .notification-center-meta {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            align-items: center;
+        }
+
+        .notification-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0d6efd;
+            display: inline-block;
+            flex: 0 0 8px;
+        }
+
+        .notification-bell-badge {
+            min-width: 1.15rem;
+            height: 1.15rem;
+            padding: 0 0.32rem;
+            font-size: 0.65rem;
+            line-height: 1.15rem;
+        }
+
+        .notification-center-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 575.98px) {
+            .notification-center-actions .btn {
+                flex: 1 1 100%;
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -491,7 +722,37 @@
                     </button>
                     <h1 class="h4 fw-bold mb-0">{% block page_title %}{% endblock %}</h1>
                 </div>
-                <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center gap-3 header-actions">
+                    <div class="dropdown">
+                        <button class="theme-toggle-btn position-relative" type="button" id="admin-notification-toggle" data-bs-toggle="dropdown" data-bs-auto-close="false" aria-expanded="false" aria-label="Open notifications">
+                            <i class="bi bi-bell"></i>
+                            <span id="admin-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-bell-badge" style="display: none;">
+                                0
+                            </span>
+                        </button>
+
+                        <div class="dropdown-menu dropdown-menu-end notification-center-menu" aria-labelledby="admin-notification-toggle">
+                            <div class="notification-center-header">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="fw-bold">Notifications</div>
+                                    <small class="text-muted" id="admin-notification-summary-text">Loading...</small>
+                                </div>
+
+                                <div class="notification-center-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="mark-all-read-btn">
+                                        Mark All As Read
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" id="clear-all-read-btn" style="display: none;">
+                                        Clear All Read
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="notification-center-list" id="admin-notification-list">
+                                <div class="notification-center-empty">Loading notifications...</div>
+                            </div>
+                        </div>
+                    </div>
                     <button class="theme-toggle-btn" type="button" onclick="toggleTheme()" id="theme-btn" aria-label="Toggle theme">
                         <i class="bi bi-moon"></i>
                     </button>
@@ -523,23 +784,82 @@
         </main>
     </div>
 
+    <div id="page-loader" class="page-loader" aria-hidden="true">
+        <div class="page-loader-card">
+            <div class="page-loader-spinner"></div>
+            <div class="page-loader-text">Loading...</div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="adminNotificationModal" tabindex="-1" aria-labelledby="adminNotificationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="adminNotificationModalLabel"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="text-muted mb-3" id="adminNotificationModalDescription" style="display: none;"></p>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="small text-muted text-uppercase fw-semibold">Target Audience</div>
+                            <div class="fw-semibold" id="adminNotificationModalAudience"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small text-muted text-uppercase fw-semibold">Tracking</div>
+                            <div class="fw-semibold" id="adminNotificationModalTracking"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small text-muted text-uppercase fw-semibold">Sent</div>
+                            <div class="fw-semibold" id="adminNotificationModalSent"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4" id="adminNotificationModalRegardingWrap" style="display: none;">
+                        <div class="small text-muted text-uppercase fw-semibold mb-2">Regarding</div>
+                        <div class="fw-semibold" id="adminNotificationModalRegarding"></div>
+                    </div>
+
+                    <div class="small text-muted text-uppercase fw-semibold mb-2">Full Message</div>
+                    <div class="border rounded-3 p-3 bg-body-tertiary" style="white-space: pre-wrap;" id="adminNotificationModalFullText"></div>
+
+                    <div class="mt-4 small text-muted" id="adminNotificationModalFooterMeta"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger" id="adminNotificationClearBtn">
+                        Clear Notification
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function toggleTheme() {
             const html = document.documentElement;
             const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', newTheme);
+            html.setAttribute('data-bs-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             updateThemeIcon(newTheme);
         }
 
         function updateThemeIcon(theme) {
-            const btn = document.getElementById('theme-btn').querySelector('i');
+            const btn = document.getElementById('theme-btn')?.querySelector('i');
+            if (!btn) return;
             btn.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon';
         }
 
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
         updateThemeIcon(savedTheme);
 
         const sidebarEl = document.querySelector('.sidebar');
@@ -568,18 +888,335 @@
             }
         }
 
+        function showPageLoader() {
+            const loader = document.getElementById('page-loader');
+            if (!loader) return;
+            loader.classList.add('show');
+            document.body.classList.add('is-loading');
+        }
+
+        function hidePageLoader() {
+            const loader = document.getElementById('page-loader');
+            if (!loader) return;
+            loader.classList.remove('show');
+            document.body.classList.remove('is-loading');
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 1200) {
                 closeSidebar();
             }
         });
 
-        document.querySelectorAll('.sidebar .nav-link').forEach((link) => {
-            link.addEventListener('click', () => {
-                if (window.innerWidth < 1200) {
-                    closeSidebar();
-                }
+        document.addEventListener('DOMContentLoaded', () => {
+            hidePageLoader();
+            document.querySelectorAll('.sidebar .nav-link').forEach((link) => {
+                link.addEventListener('click', (event) => {
+                    if (window.innerWidth < 1200) {
+                        closeSidebar();
+                    }
+                    const href = link.getAttribute('href');
+                    if (!href || href === '#' || link.classList.contains('active')) {
+                        return;
+                    }
+                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target === '_blank') {
+                        return;
+                    }
+                    showPageLoader();
+                });
             });
+            document.querySelectorAll('form').forEach((form) => {
+                form.addEventListener('submit', () => {
+                    if (form.hasAttribute('data-no-loader')) return;
+                    showPageLoader();
+                });
+            });
+            document.querySelectorAll('a').forEach((link) => {
+                link.addEventListener('click', (event) => {
+                    const href = link.getAttribute('href');
+                    if (!href || href.startsWith('#')) return;
+                    if (link.closest('.sidebar')) return;
+                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target === '_blank') {
+                        return;
+                    }
+                    showPageLoader();
+                });
+            });
+
+            const badgeEl = document.getElementById('admin-notification-badge');
+            const summaryTextEl = document.getElementById('admin-notification-summary-text');
+            const listEl = document.getElementById('admin-notification-list');
+            const markAllBtn = document.getElementById('mark-all-read-btn');
+            const clearAllBtn = document.getElementById('clear-all-read-btn');
+            const toggleBtn = document.getElementById('admin-notification-toggle');
+            const modalEl = document.getElementById('adminNotificationModal');
+            const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+            const modalTitleEl = document.getElementById('adminNotificationModalLabel');
+            const modalDescriptionEl = document.getElementById('adminNotificationModalDescription');
+            const modalAudienceEl = document.getElementById('adminNotificationModalAudience');
+            const modalTrackingEl = document.getElementById('adminNotificationModalTracking');
+            const modalSentEl = document.getElementById('adminNotificationModalSent');
+            const modalRegardingWrapEl = document.getElementById('adminNotificationModalRegardingWrap');
+            const modalRegardingEl = document.getElementById('adminNotificationModalRegarding');
+            const modalFullTextEl = document.getElementById('adminNotificationModalFullText');
+            const modalFooterMetaEl = document.getElementById('adminNotificationModalFooterMeta');
+            const modalClearBtn = document.getElementById('adminNotificationClearBtn');
+            let currentNotifications = [];
+            let activeNotificationId = null;
+            let dropdownLoaded = false;
+
+            function updateBellBadge(unreadCount) {
+                if (!badgeEl) return;
+                if (unreadCount > 0) {
+                    badgeEl.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                    badgeEl.style.display = '';
+                } else {
+                    badgeEl.style.display = 'none';
+                }
+            }
+
+            function updateSummaryText(totalCount, unreadCount) {
+                if (!summaryTextEl) return;
+                if (totalCount === 0) {
+                    summaryTextEl.textContent = 'No notifications';
+                } else {
+                    summaryTextEl.textContent = `${unreadCount} unread • ${totalCount} total`;
+                }
+            }
+
+            function renderNotificationList(notifications, summary) {
+                currentNotifications = notifications || [];
+                updateBellBadge(summary.unread_count);
+                updateSummaryText(summary.total_count, summary.unread_count);
+                if (markAllBtn) {
+                    markAllBtn.style.display = summary.unread_count > 0 ? '' : 'none';
+                }
+                if (clearAllBtn) {
+                    clearAllBtn.style.display = summary.all_read ? '' : 'none';
+                }
+                if (!listEl) return;
+                if (!currentNotifications.length) {
+                    listEl.innerHTML = '<div class="notification-center-empty">No notifications found.</div>';
+                    return;
+                }
+                listEl.innerHTML = currentNotifications.map((item) => `
+                    <button type="button" class="notification-center-item ${item.admin_read ? '' : 'unread'}" data-notification-id="${item.id}">
+                        <div class="notification-center-title">${item.title}</div>
+                        <div class="notification-center-desc">${item.description || item.full_text}</div>
+                        <div class="notification-center-meta">
+                            ${item.admin_read ? '' : '<span class="notification-dot"></span>'}
+                            <span>${item.display_audience}</span>
+                            <span>•</span>
+                            <span>${item.display_tracking}</span>
+                            ${item.display_regarding ? `<span>•</span><span>${item.display_regarding}</span>` : ''}
+                            <span>•</span>
+                            <span>${item.sent_human}</span>
+                        </div>
+                    </button>
+                `).join('');
+                listEl.querySelectorAll('.notification-center-item').forEach((button) => {
+                    button.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const notificationId = parseInt(button.getAttribute('data-notification-id'), 10);
+                        const notification = currentNotifications.find((item) => item.id === notificationId);
+                        if (!notification) return;
+                        openNotificationModal(notification);
+                    });
+                });
+            }
+
+            function markNotificationAsRead(notificationId) {
+                return postHeaderNotificationAction('mark_one_read', notificationId).then((data) => {
+                    if (!data.ok) return data;
+                    currentNotifications = currentNotifications.map((item) => {
+                        if (item.id === notificationId) {
+                            return {
+                                ...item,
+                                admin_read: true,
+                                admin_seen_by: data.notification?.admin_seen_by || '{{ request.user.username }}',
+                            };
+                        }
+                        return item;
+                    });
+                    renderNotificationList(currentNotifications, data);
+                    refreshPageNotificationUI(notificationId, data.notification?.admin_seen_by || '{{ request.user.username }}');
+                    const unreadCountEl = document.getElementById('adminUnreadCount');
+                    if (unreadCountEl && typeof data.unread_count !== 'undefined') {
+                        unreadCountEl.textContent = String(data.unread_count);
+                    }
+                    return data;
+                });
+            }
+
+            function openNotificationModal(item) {
+                if (!modal) return;
+                activeNotificationId = item.id;
+                modalTitleEl.textContent = item.title;
+                modalAudienceEl.textContent = item.display_audience;
+                modalTrackingEl.textContent = item.display_tracking;
+                modalSentEl.textContent = item.sent_full;
+                modalFullTextEl.textContent = item.full_text;
+                modalFooterMetaEl.textContent = `Sent ${item.sent_full} by ${item.created_by}`;
+                if (item.description && item.description.trim()) {
+                    modalDescriptionEl.textContent = item.description;
+                    modalDescriptionEl.style.display = '';
+                } else {
+                    modalDescriptionEl.textContent = '';
+                    modalDescriptionEl.style.display = 'none';
+                }
+                if (item.display_regarding) {
+                    modalRegardingEl.textContent = item.display_regarding;
+                    modalRegardingWrapEl.style.display = '';
+                } else {
+                    modalRegardingEl.textContent = '';
+                    modalRegardingWrapEl.style.display = 'none';
+                }
+                modal.show();
+                if (!item.admin_read) {
+                    markNotificationAsRead(item.id).catch(() => {});
+                }
+            }
+
+            function refreshPageNotificationUI(notificationId, adminSeenByText) {
+                document.querySelectorAll(`[data-admin-status-cell="${notificationId}"]`).forEach((el) => {
+                    el.innerHTML = `
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">Read by admin</span>
+                        <div class="small text-muted mt-1">
+                            ${adminSeenByText} • just now
+                        </div>
+                    `;
+                });
+                const unreadCountEl = document.getElementById('adminUnreadCount');
+                if (unreadCountEl) {
+                    const current = parseInt(unreadCountEl.textContent, 10);
+                    if (!Number.isNaN(current) && current > 0) {
+                        unreadCountEl.textContent = current - 1;
+                    }
+                }
+            }
+
+            function fetchHeaderNotifications() {
+                return fetch("{% url 'dashboard:header_notifications_feed' %}", {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then((response) => {
+                    if (!response.ok) throw new Error('Failed to load notifications.');
+                    return response.json();
+                })
+                .then((data) => {
+                    if (!data.ok) throw new Error(data.error || 'Failed to load notifications.');
+                    renderNotificationList(data.notifications, data);
+                    dropdownLoaded = true;
+                    return data;
+                })
+                .catch(() => {
+                    if (listEl) {
+                        listEl.innerHTML = '<div class="notification-center-empty">Could not load notifications.</div>';
+                    }
+                });
+            }
+
+            function postHeaderNotificationAction(action, notificationId = null) {
+                const body = new URLSearchParams({ action });
+                if (notificationId) {
+                    body.append('notification_id', notificationId);
+                }
+                return fetch("{% url 'dashboard:header_notifications_action' %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body
+                })
+                .then((response) => {
+                    if (!response.ok) throw new Error('Action failed.');
+                    return response.json();
+                });
+            }
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('show.bs.dropdown', () => {
+                    if (!dropdownLoaded) {
+                        fetchHeaderNotifications();
+                    } else {
+                        fetchHeaderNotifications();
+                    }
+                });
+            }
+
+            if (markAllBtn) {
+                markAllBtn.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    postHeaderNotificationAction('mark_all_read').then((data) => {
+                        if (!data.ok) return;
+                        fetchHeaderNotifications();
+
+                        document.querySelectorAll('[data-admin-status-cell]').forEach((el) => {
+                            if (el.textContent.includes('Unread by admin')) {
+                                el.innerHTML = `
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Read by admin</span>
+                                    <div class="small text-muted mt-1">
+                                        {{ request.user.username }} • just now
+                                    </div>
+                                `;
+                            }
+                        });
+                        const unreadCountEl = document.getElementById('adminUnreadCount');
+                        if (unreadCountEl) {
+                            unreadCountEl.textContent = '0';
+                        }
+                    }).catch(() => {});
+                });
+            }
+
+            if (clearAllBtn) {
+                clearAllBtn.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    postHeaderNotificationAction('clear_all_read').then((data) => {
+                        if (!data.ok) return;
+                        fetchHeaderNotifications();
+                    }).catch(() => {});
+                });
+            }
+
+            if (modalClearBtn) {
+                modalClearBtn.addEventListener('click', () => {
+                    if (!activeNotificationId) return;
+                    postHeaderNotificationAction('clear_one', activeNotificationId).then((data) => {
+                        if (!data.ok) return;
+                        modal.hide();
+                        fetchHeaderNotifications();
+                    }).catch(() => {});
+                });
+            }
+
+            window.addEventListener('pageshow', () => {
+                hidePageLoader();
+            });
+            fetchHeaderNotifications();
         });
     </script>
 </body>
