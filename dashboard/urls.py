@@ -14,5 +14,7 @@ urlpatterns = [
     path('dashboard/progress/', views.dashboard_progress, name='progress'),
     path('dashboard/badges/', views.dashboard_badges, name='badges'),
     path('dashboard/notifications/', views.dashboard_notifications, name='notifications'),
+    path('notifications/feed/', views.header_notifications_feed, name='header_notifications_feed'),
+    path('notifications/actions/', views.header_notifications_action, name='header_notifications_action'),
     path('dashboard/secure-files/', views.dashboard_secure_files, name='secure_files'),
 ]

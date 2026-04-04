@@ -8,6 +8,11 @@ from django.db.models import Count, Q, Avg, Sum
 from django.utils import timezone
 from django.core.exceptions import ImproperlyConfigured
 from datetime import timedelta
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
+from django.utils.timesince import timesince
 
 from accounts.models import CustomUser
 from courses.models import Course, Module, ModuleProgress, CourseProgress
@@ -15,7 +20,6 @@ from user_progress.models import Badge, UserBadge
 from notifications.models import Notification, UserNotification
 from secure_files.models import SecureFile
 from secure_files.services.firebase_storage import delete_file as delete_secure_blob, upload_file
-
 
 def normalize_progress_value(value):
     """Normalize progress values that may be stored as 0..1 ratios or 0..100 percentages."""
@@ -103,6 +107,74 @@ def dashboard_users(request):
                 target_user.save(update_fields=['is_staff'])
                 state = 'granted' if target_user.is_staff else 'removed'
                 messages.success(request, f'Staff access {state} for {target_user.username}.')
+            return redirect('dashboard:users')
+        
+        if action == 'edit_user':
+            user_id = request.POST.get('user_id')
+            target_user = CustomUser.objects.filter(id=user_id).first()
+
+            if not target_user:
+                messages.error(request, 'User not found.')
+                return redirect('dashboard:users')
+
+            username = request.POST.get('username', '').strip()
+            email = request.POST.get('email', '').strip().lower()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            is_staff = request.POST.get('is_staff') == 'on'
+
+            if not username or not email:
+                messages.error(request, 'Username and email are required.')
+            elif CustomUser.objects.exclude(id=target_user.id).filter(username=username).exists():
+                messages.error(request, 'A user with this username already exists.')
+            elif CustomUser.objects.exclude(id=target_user.id).filter(email=email).exists():
+                messages.error(request, 'A user with this email already exists.')
+            elif target_user.id == request.user.id and request.user.is_superuser and not is_staff:
+                messages.error(request, 'You cannot remove your own staff access.')
+            else:
+                target_user.username = username
+                target_user.email = email
+                target_user.first_name = first_name
+                target_user.last_name = last_name
+                target_user.is_staff = is_staff
+                target_user.save()
+                messages.success(request, f'User {target_user.username} updated successfully.')
+
+            return redirect('dashboard:users')
+
+        if action == 'delete_user':
+            user_id = request.POST.get('user_id')
+            target_user = CustomUser.objects.filter(id=user_id).first()
+
+            if not target_user:
+                messages.error(request, 'User not found.')
+                return redirect('dashboard:users')
+
+            if target_user.id == request.user.id:
+                messages.error(request, 'You cannot delete your own account.')
+                return redirect('dashboard:users')
+
+            if target_user.is_superuser:
+                messages.error(request, 'Superuser accounts cannot be deleted from this panel.')
+                return redirect('dashboard:users')
+
+            username = target_user.username
+
+            try:
+                with transaction.atomic():
+                    # Delete remote secure-file blobs first
+                    for secure_file in target_user.secure_files.all():
+                        try:
+                            delete_secure_blob(secure_file.s3_key)
+                        except ImproperlyConfigured:
+                            pass
+
+                    target_user.delete()
+
+                messages.success(request, f'User {username} deleted successfully.')
+            except Exception as exc:
+                messages.error(request, f'Could not delete user: {exc}')
+
             return redirect('dashboard:users')
 
     users = CustomUser.objects.all().order_by('-date_joined')
@@ -351,74 +423,196 @@ def dashboard_badges(request):
     }
     return render(request, 'dashboard/badges.html', context)
 
+def get_guide_queryset():
+    return CustomUser.objects.filter(is_active=True, is_staff=False, is_superuser=False).order_by('username')
+
+def decorate_notification_for_dashboard(item):
+    if item.audience_type == Notification.AUDIENCE_ADMINS:
+        item.display_audience = 'Admins'
+    elif item.audience_type == Notification.AUDIENCE_ALL_GUIDES:
+        item.display_audience = 'All Guides'
+    else:
+        if item.recipient_count == 1:
+            item.display_audience = '1 Selected Guide'
+        else:
+            item.display_audience = f'{item.recipient_count} Selected Guides'
+    if item.tracking_type == Notification.TRACKING_ADMIN_SHARED:
+        item.display_tracking = 'Any admin can mark as read'
+    elif item.tracking_type == Notification.TRACKING_INFO_ONLY:
+        item.display_tracking = 'No response needed'
+    elif item.tracking_type == Notification.TRACKING_USER_READ:
+        item.display_tracking = f'{item.read_count}/{item.recipient_count} Confirmed read'
+    elif item.tracking_type == Notification.TRACKING_USER_ACK:
+        item.display_tracking = f'{item.read_count}/{item.recipient_count} User acknowledged'
+    else:
+        item.display_tracking = '-'
+    if item.related_user:
+        full_name = item.related_user.get_full_name().strip()
+        label_name = full_name or item.related_user.username
+        item.display_regarding = f'{label_name} ({item.related_user.email})'
+    else:
+        item.display_regarding = ''
+    return item
+
+def get_admin_notifications_queryset():
+    return (
+        Notification.objects
+        .filter(show_in_header=True)
+        .select_related('created_by', 'admin_seen_by', 'related_user')
+        .annotate(
+            recipient_count=Count('recipients', distinct=True),
+            read_count=Count('recipients', filter=Q(recipients__is_read=True), distinct=True),
+            unread_count=Count('recipients', filter=Q(recipients__is_read=False), distinct=True),
+        )
+        .order_by('-sent_at')
+    )
+
+
+def serialize_admin_notification(item):
+    decorate_notification_for_dashboard(item)
+
+    created_by_name = 'System'
+    if item.created_by:
+        full_name = item.created_by.get_full_name().strip()
+        created_by_name = full_name or item.created_by.username
+
+    admin_seen_by_name = ''
+    if item.admin_seen_by:
+        full_name = item.admin_seen_by.get_full_name().strip()
+        admin_seen_by_name = full_name or item.admin_seen_by.username
+
+    return {
+        'id': item.id,
+        'title': item.title,
+        'description': item.description or '',
+        'full_text': item.full_text,
+        'display_audience': item.display_audience,
+        'display_tracking': item.display_tracking,
+        'display_regarding': getattr(item, 'display_regarding', ''),
+        'sent_human': f'{timesince(item.sent_at)} ago',
+        'sent_full': item.sent_at.strftime('%b %d, %Y %H:%M'),
+        'created_by': created_by_name,
+        'admin_read': bool(item.admin_seen_at),
+        'admin_seen_by': admin_seen_by_name,
+    }
+
+
+def get_admin_notification_summary():
+    visible_qs = Notification.objects.filter(show_in_header=True)
+    total_count = visible_qs.count()
+    unread_count = visible_qs.filter(admin_seen_at__isnull=True).count()
+    return {
+        'total_count': total_count,
+        'unread_count': unread_count,
+        'all_read': total_count > 0 and unread_count == 0,
+    }
+
 @login_required
 @user_passes_test(is_staff_or_admin)
 def dashboard_notifications(request):
     """Notification management page"""
     if request.method == 'POST':
         action = request.POST.get('action')
-
         if action == 'create_notification':
             title = request.POST.get('title', '').strip()
             description = request.POST.get('description', '').strip()
             full_text = request.POST.get('full_text', '').strip()
-            target_user_id = request.POST.get('target_user', '').strip()
-
+            audience_type = request.POST.get('audience_type', Notification.AUDIENCE_ALL_GUIDES)
+            tracking_type = request.POST.get('tracking_type', Notification.TRACKING_INFO_ONLY)
+            selected_user_ids = request.POST.getlist('selected_users')
             if not title or not full_text:
                 messages.error(request, 'Title and full message are required.')
                 return redirect('dashboard:notifications')
-
-            notification = Notification.objects.create(
-                title=title,
-                description=description,
-                full_text=full_text,
-                created_by=request.user,
-            )
-
-            recipients = CustomUser.objects.filter(is_active=True)
-            if target_user_id and target_user_id != 'all':
-                recipients = recipients.filter(id=target_user_id)
-
-            recipient_notifications = [
-                UserNotification(user=user, notification=notification)
-                for user in recipients
-            ]
-
-            if recipient_notifications:
-                UserNotification.objects.bulk_create(recipient_notifications)
-
-            messages.success(request, f'Notification sent to {len(recipient_notifications)} user(s).')
+            guide_qs = get_guide_queryset()
+            recipients = []
+            if audience_type == Notification.AUDIENCE_ADMINS:
+                tracking_type = Notification.TRACKING_ADMIN_SHARED
+            elif audience_type == Notification.AUDIENCE_ALL_GUIDES:
+                recipients = list(guide_qs)
+                if tracking_type == Notification.TRACKING_ADMIN_SHARED:
+                    tracking_type = Notification.TRACKING_INFO_ONLY
+            elif audience_type == Notification.AUDIENCE_SELECTED_GUIDES:
+                recipients = list(guide_qs.filter(id__in=selected_user_ids))
+                if tracking_type == Notification.TRACKING_ADMIN_SHARED:
+                    tracking_type = Notification.TRACKING_INFO_ONLY
+                if not recipients:
+                    messages.error(request, 'Please select at least one active guide.')
+                    return redirect('dashboard:notifications')
+            else:
+                messages.error(request, 'Invalid audience type.')
+                return redirect('dashboard:notifications')
+            with transaction.atomic():
+                notification = Notification.objects.create(title=title, description=description, full_text=full_text, audience_type=audience_type, tracking_type=tracking_type, created_by=request.user)
+                if recipients:
+                    UserNotification.objects.bulk_create([UserNotification(user=user, notification=notification) for user in recipients])
+            if audience_type == Notification.AUDIENCE_ADMINS:
+                messages.success(request, 'Notification sent to admins.')
+            elif audience_type == Notification.AUDIENCE_ALL_GUIDES:
+                messages.success(request, f'Notification sent to all guides ({len(recipients)} users).')
+            else:
+                messages.success(request, f'Notification sent to {len(recipients)} selected guide(s).')
             return redirect('dashboard:notifications')
-
-    user_notifications = UserNotification.objects.select_related('user', 'notification').all().order_by('-notification__sent_at')
-    
-    # Filter by read status if specified
-    read_status = request.GET.get('status', '')
+        elif action == 'mark_notification_seen':
+            notification_id = request.POST.get('notification_id')
+            notification = Notification.objects.filter(id=notification_id).first()
+            if not notification:
+                return JsonResponse({'ok': False, 'error': 'Notification not found'}, status=404)
+            if notification.admin_seen_at is None:
+                now = timezone.now()
+                notification.admin_seen_at = now
+                notification.admin_seen_by = request.user
+                notification.save(update_fields=['admin_seen_at', 'admin_seen_by'])
+            return JsonResponse({
+                'ok': True,
+                'admin_seen_at': notification.admin_seen_at.isoformat() if notification.admin_seen_at else None,
+                'admin_seen_by': request.user.username,
+            })
+        elif action == 'delete_notification':
+            notification_id = request.POST.get('notification_id')
+            notification = get_object_or_404(Notification, id=notification_id)
+            title = notification.title
+            notification.delete()
+            messages.success(request, f'Notification "{title}" deleted.')
+            return redirect('dashboard:notifications')
+    search_query = request.GET.get('search', '').strip()
+    read_status = request.GET.get('status', '').strip()
+    notifications_qs = (
+        Notification.objects
+        .select_related('created_by', 'admin_seen_by', 'related_user')
+        .annotate(
+            recipient_count=Count('recipients', distinct=True),
+            read_count=Count('recipients', filter=Q(recipients__is_read=True), distinct=True),
+            unread_count=Count('recipients', filter=Q(recipients__is_read=False), distinct=True),
+        )
+        .order_by('-sent_at')
+    )
+    if search_query:
+        notifications_qs = notifications_qs.filter(
+            Q(title__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(full_text__icontains=search_query) |
+            Q(recipients__user__username__icontains=search_query) |
+            Q(recipients__user__email__icontains=search_query)
+        ).distinct()
     if read_status == 'unread':
-        user_notifications = user_notifications.filter(is_read=False)
+        notifications_qs = notifications_qs.filter(admin_seen_at__isnull=True)
     elif read_status == 'read':
-        user_notifications = user_notifications.filter(is_read=True)
-    
-    # Pagination
-    page = request.GET.get('page', 1)
-    per_page = 30
-    total = user_notifications.count()
-    start = (int(page) - 1) * per_page
-    end = start + per_page
-    
-    notif_paginated = user_notifications[start:end]
-    total_pages = (total + per_page - 1) // per_page
-    
+        notifications_qs = notifications_qs.filter(admin_seen_at__isnull=False)
+    paginator = Paginator(notifications_qs, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    notifications = list(page_obj.object_list.prefetch_related('recipients__user'))
+    for item in notifications:
+        decorate_notification_for_dashboard(item)
+        item.recipient_usernames_csv = ', '.join(item.recipients.all().values_list('user__username', flat=True))
     context = {
-        'notifications': notif_paginated,
-        'total': total,
-        'current_page': int(page),
-        'total_pages': total_pages,
+        'page_obj': page_obj,
+        'notifications': notifications,
+        'search_query': search_query,
         'selected_status': read_status,
-        'users': CustomUser.objects.filter(is_active=True).order_by('username'),
+        'guide_users': get_guide_queryset(),
         'stats': {
             'total_notifications': Notification.objects.count(),
-            'unread': UserNotification.objects.filter(is_read=False).count(),
+            'unread': Notification.objects.filter(admin_seen_at__isnull=True).count(),
             'sent_this_week': Notification.objects.filter(
                 sent_at__gte=timezone.now() - timedelta(days=7)
             ).count(),
@@ -426,6 +620,74 @@ def dashboard_notifications(request):
     }
     return render(request, 'dashboard/notifications.html', context)
 
+@login_required
+@user_passes_test(is_staff_or_admin)
+@require_http_methods(["GET"])
+def header_notifications_feed(request):
+    notifications = [
+        serialize_admin_notification(item)
+        for item in get_admin_notifications_queryset()
+    ]
+
+    return JsonResponse({
+        'ok': True,
+        'notifications': notifications,
+        **get_admin_notification_summary(),
+    })
+    
+@login_required
+@user_passes_test(is_staff_or_admin)
+@require_http_methods(["POST"])
+def header_notifications_action(request):
+    action = request.POST.get('action', '').strip()
+    now = timezone.now()
+    if action == 'mark_one_read':
+        notification_id = request.POST.get('notification_id')
+        notification = get_object_or_404(Notification, id=notification_id)
+        if notification.admin_seen_at is None:
+            notification.admin_seen_at = now
+            notification.admin_seen_by = request.user
+            notification.save(update_fields=['admin_seen_at', 'admin_seen_by'])
+        item = get_admin_notifications_queryset().get(id=notification.id)
+        return JsonResponse({
+            'ok': True,
+            'notification': serialize_admin_notification(item),
+            **get_admin_notification_summary(),
+        })
+    if action == 'mark_all_read':
+        Notification.objects.filter(admin_seen_at__isnull=True).update(
+            admin_seen_at=now,
+            admin_seen_by_id=request.user.id,
+        )
+        return JsonResponse({
+            'ok': True,
+            **get_admin_notification_summary(),
+        })
+    if action == 'clear_one':
+        notification_id = request.POST.get('notification_id')
+        notification = get_object_or_404(Notification, id=notification_id)
+        notification.show_in_header = False
+        notification.save(update_fields=['show_in_header'])
+        return JsonResponse({
+            'ok': True,
+            **get_admin_notification_summary(),
+        })
+    if action == 'clear_all_read':
+        visible_unread_exists = Notification.objects.filter(show_in_header=True,admin_seen_at__isnull=True).exists()
+        if visible_unread_exists:
+            return JsonResponse({
+                'ok': False,
+                'error': 'Cannot clear read notifications while unread notifications still exist.',
+            }, status=400)
+        Notification.objects.filter(show_in_header=True,admin_seen_at__isnull=False).update(show_in_header=False)
+        return JsonResponse({
+            'ok': True,
+            **get_admin_notification_summary(),
+        })
+    return JsonResponse({
+        'ok': False,
+        'error': 'Invalid action.',
+    }, status=400)
 
 @login_required
 @user_passes_test(is_staff_or_admin)
@@ -433,18 +695,15 @@ def dashboard_secure_files(request):
     """Secure file upload and management page."""
     if request.method == 'POST':
         action = request.POST.get('action')
-
         if action == 'upload_files':
             files = request.FILES.getlist('files')
             if not files:
                 single_file = request.FILES.get('file')
                 if single_file:
                     files = [single_file]
-
             if not files:
                 messages.warning(request, 'No files selected.')
                 return redirect('dashboard:secure_files')
-
             uploaded_count = 0
             for uploaded in files:
                 try:
@@ -456,17 +715,14 @@ def dashboard_secure_files(request):
                 except Exception as exc:
                     messages.error(request, f'Upload failed for {uploaded.name}: {exc}')
                     return redirect('dashboard:secure_files')
-
             messages.success(request, f'Successfully uploaded {uploaded_count} file(s).')
             return redirect('dashboard:secure_files')
-
         if action == 'delete_file':
             file_id = request.POST.get('file_id')
             secure_file = SecureFile.objects.filter(id=file_id).first()
             if not secure_file:
                 messages.error(request, 'File not found.')
                 return redirect('dashboard:secure_files')
-
             try:
                 delete_secure_blob(secure_file.s3_key)
             except ImproperlyConfigured as exc:
@@ -488,6 +744,8 @@ def dashboard_secure_files(request):
     end = start + per_page
     files_paginated = files_qs[start:end]
     total_pages = (total + per_page - 1) // per_page
+    total_size_bytes = files_qs.aggregate(total=Sum('size'))['total'] or 0
+    total_size_mb = round(total_size_bytes / (1024 * 1024), 2)
 
     context = {
         'files': files_paginated,
@@ -496,7 +754,7 @@ def dashboard_secure_files(request):
         'total_pages': total_pages,
         'stats': {
             'total_files': total,
-            'total_size': files_qs.aggregate(total=Sum('size'))['total'] or 0,
+            'total_size_mb': total_size_mb,
             'owners': files_qs.values('owner').distinct().count(),
         },
     }
@@ -507,9 +765,7 @@ def get_dashboard_stats(request):
     now = timezone.now()
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
-    
     avg_progress_raw = CourseProgress.objects.aggregate(avg=Avg('progress'))['avg'] or 0
-
     return {
         'stats': {
             'total_users': CustomUser.objects.count(),
@@ -532,7 +788,7 @@ def get_dashboard_stats(request):
         },
         'notification_stats': {
             'total_sent': Notification.objects.count(),
-            'unread': UserNotification.objects.filter(is_read=False).count(),
+            'unread': Notification.objects.filter(admin_seen_at__isnull=True).count(),
             'sent_this_week': Notification.objects.filter(sent_at__gte=week_ago).count(),
         },
         'recent_activity': get_recent_activity(),
