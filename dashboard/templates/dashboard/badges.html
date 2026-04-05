@@ -4,12 +4,119 @@
 
 {% block extra_css %}
 <style>
-    .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+    .badge-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+        gap: 1.5rem;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .badge-grid > * {
+        min-width: 0;
+    }
+
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .badges-page-content {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+    }
+
+    .badges-page-content .glass-card,
+    .badges-page-content .badge-grid,
+    .badges-page-content .badge-grid > *,
+    .badges-page-content .table-responsive {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .badges-page-content .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .badges-page-content .table-responsive .table {
+        width: max-content;
+        min-width: 100%;
+        margin-bottom: 0;
+    }
+
+    .glass-card,
+    .badge-grid,
+    .badge-grid > *,
+    .table-responsive {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive .table {
+        width: max-content;
+        min-width: 100%;
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 575.98px) {
+        .badge-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .badge-card {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .badge-card h4,
+        .badge-card p {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .glass-card {
+            overflow-x: hidden;
+        }
+
+        .table-responsive {
+            padding-bottom: 0.25rem;
+        }
+
+        .table-responsive .table th,
+        .table-responsive .table td {
+            white-space: nowrap;
+        }
+    }
+
     .badge-card {
         text-align: center;
-        transition: transform 0.3s;
+        transition: transform 0.3s, box-shadow 0.3s ease;
+        cursor: pointer;
     }
-    .badge-card:hover { transform: translateY(-10px); }
+
+    .badge-card:hover {
+        transform: translateY(-10px);
+    }
+
+    .badge-card:focus-visible {
+        outline: 2px solid var(--primary-light);
+        outline-offset: 3px;
+    }
+
     .badge-art {
         width: 100px; height: 100px;
         background: var(--bg-body);
@@ -19,106 +126,452 @@
         font-size: 2.5rem;
         border: 4px solid var(--border);
     }
+
+    .create-badge-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .create-badge-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 999px;
+        padding: 0.65rem 1.1rem;
+        font-weight: 600;
+    }
+
+    .create-badge-toggle .toggle-icon {
+        transition: transform 0.25s ease;
+    }
+
+    .create-badge-toggle[aria-expanded="true"] .toggle-icon {
+        transform: rotate(180deg);
+    }
+
+    .create-badge-body {
+        padding-top: 1.25rem;
+    }
+
+    @media (max-width: 767.98px) {
+        .create-badge-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .create-badge-toggle {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    .badge-detail-modal .modal-dialog {
+        max-width: 760px;
+    }
+
+    .badge-detail-modal .modal-content {
+        border-radius: 22px;
+        overflow: hidden;
+        max-height: min(82vh, 760px);
+    }
+
+    .badge-detail-modal .modal-header {
+        padding: 1rem 1.1rem 0.9rem;
+    }
+
+    .badge-detail-modal .modal-body {
+        padding: 1rem;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .badge-detail-modal .glass-card {
+        padding: 1rem;
+        border-radius: 18px;
+    }
+
+    .badge-detail-modal .badge-user-item {
+        padding: 0.9rem !important;
+    }
+
+    @media (max-width: 767.98px) {
+        .badge-detail-modal .modal-dialog {
+            margin: 0.75rem auto;
+            max-width: min(320px, calc(100vw - 1.5rem));
+        }
+
+        .badge-detail-modal .modal-content {
+            max-height: calc(100dvh - 1.5rem);
+        }
+
+        .badge-detail-modal .modal-header {
+            padding: 0.9rem 0.95rem 0.75rem;
+            align-items: flex-start;
+        }
+
+        .badge-detail-modal .modal-title {
+            font-size: 1.1rem;
+            line-height: 1.35;
+        }
+
+        .badge-detail-modal .modal-body {
+            padding: 0.85rem;
+        }
+
+        .badge-detail-modal .row.g-3 {
+            --bs-gutter-x: 0.75rem;
+            --bs-gutter-y: 0.75rem;
+        }
+
+        .badge-detail-modal .glass-card {
+            padding: 0.85rem;
+            border-radius: 16px;
+        }
+
+        .badge-detail-modal .h4 {
+            font-size: 1.35rem;
+            margin-bottom: 0.75rem !important;
+        }
+
+        .badge-detail-modal .badge-user-item {
+            padding: 0.8rem !important;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="glass-card mb-4">
-    <h3 class="h5 fw-bold mb-3">Create Badge</h3>
-    <form method="post" class="row g-3">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="create_badge">
-        <div class="col-md-4">
-            <label class="form-label">Badge Name</label>
-            <input type="text" name="name" class="form-control" required>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Related Course</label>
-            <select name="course_id" class="form-select">
-                <option value="">General badge</option>
-                {% for course in courses %}
-                    <option value="{{ course.id }}">{{ course.title.en|default:"Untitled Course" }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Required Completed Modules</label>
-            <input type="number" min="1" name="required_completed_modules" class="form-control" value="1" required>
-        </div>
-        <div class="col-12">
-            <label class="form-label">Description</label>
-            <textarea name="description" class="form-control" rows="2"></textarea>
-        </div>
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="auto_approve_when_eligible" id="autoApproveBadge">
-                <label class="form-check-label" for="autoApproveBadge">Auto approve when eligible</label>
+<div class="badges-page-content">
+    <div class="glass-card mb-4">
+        <div class="create-badge-header">
+            <div>
+                <h3 class="h5 fw-bold mb-1">Create Badge</h3>
             </div>
-            <button type="submit" class="btn btn-success rounded-pill px-4">Create Badge</button>
+            <button
+                class="btn btn-outline-success create-badge-toggle"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#createBadgeCollapse"
+                aria-expanded="false"
+                aria-controls="createBadgeCollapse"
+                id="createBadgeToggleBtn">
+                <span id="createBadgeToggleText">Open Create Badge</span>
+                <i class="bi bi-chevron-down toggle-icon"></i>
+            </button>
         </div>
-    </form>
-</div>
-
-<div class="badge-grid">
-    {% for badge in badges %}
-    <div class="glass-card badge-card">
-        <div class="badge-art"><i class="bi bi-patch-check-fill"></i></div>
-        <h4 class="fw-bold">{{ badge.name }}</h4>
-        <p class="text-muted small">{{ badge.description }}</p>
-        
-        <div class="row border-top pt-3 mt-3">
-            <div class="col-6 border-end">
-                <div class="small text-muted">GRANTED</div>
-                <div class="fw-bold">{{ badge.granted_badges }}</div>
-            </div>
-            <div class="col-6">
-                <div class="small text-muted">PENDING</div>
-                <div class="fw-bold text-warning">{{ badge.pending_approvals }}</div>
+        <div class="collapse" id="createBadgeCollapse">
+            <div class="create-badge-body">
+                <form method="post" class="row g-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_badge">
+                    <div class="col-md-4">
+                        <label class="form-label">Badge Name</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Related Course</label>
+                        <select name="course_id" class="form-select">
+                            <option value="">General badge</option>
+                            {% for course in courses %}
+                                <option value="{{ course.id }}">{{ course.title.en|default:"Untitled Course" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Required Completed Modules</label>
+                        <input type="number" min="1" name="required_completed_modules" class="form-control" value="1" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="auto_approve_when_eligible" id="autoApproveBadge">
+                            <label class="form-check-label" for="autoApproveBadge">Auto approve when eligible</label>
+                        </div>
+                        <button type="submit" class="btn btn-success rounded-pill px-4">Create Badge</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-    {% endfor %}
-</div>
 
-<div class="glass-card mt-5">
-    <h3 class="h5 fw-bold mb-4">Pending Requests</h3>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Learner</th>
-                    <th>Requested Badge</th>
-                    <th>Date</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for request in pending_badges %}
-                <tr>
-                    <td>
-                        <div class="fw-bold">{{ request.user.username }}</div>
-                        <div class="small text-muted">{{ request.user.email }}</div>
-                    </td>
-                    <td><span class="badge bg-secondary text-dark">{{ request.badge.name }}</span></td>
-                    <td>{{ request.awarded_at|date:"M d, Y" }}</td>
-                    <td class="text-end">
-                        <form method="post" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="approve_badge">
-                            <input type="hidden" name="user_badge_id" value="{{ request.id }}">
-                            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">Approve</button>
-                        </form>
-                        <form method="post" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="reject_badge">
-                            <input type="hidden" name="user_badge_id" value="{{ request.id }}">
-                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">Reject</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="badge-grid">
+        {% for badge in badges %}
+        <div class="glass-card badge-card" data-badge-card="{{ badge.id }}" data-badge-id="{{ badge.id }}" role="button" tabindex="0" aria-label="View {{ badge.name }} details">
+            <div class="badge-art"><i class="bi bi-patch-check-fill"></i></div>
+            <h4 class="fw-bold">{{ badge.name }}</h4>
+            <p class="text-muted small">{{ badge.description }}</p>
+            <div class="row border-top pt-3 mt-3">
+                <div class="col-6 border-end">
+                    <div class="small text-muted">GRANTED</div>
+                    <div class="fw-bold" data-granted-count>{{ badge.granted_badges }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">PENDING</div>
+                    <div class="fw-bold text-warning" data-pending-count>{{ badge.pending_approvals }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="modal fade badge-detail-modal" id="badgeDetailModal" tabindex="-1" aria-labelledby="badgeDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-bold" id="badgeDetailModalLabel">Badge Details</h5>
+                        <div class="small text-muted" id="badgeDetailModalDescription"></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="glass-card h-100">
+                                <div class="small text-muted mb-2">GRANTED</div>
+                                <div class="h4 fw-bold mb-3" id="badgeDetailGrantedCount">0</div>
+                                <div id="badgeDetailGrantedList" class="vstack gap-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="glass-card h-100">
+                                <div class="small text-muted mb-2">PENDING</div>
+                                <div class="h4 fw-bold text-warning mb-3" id="badgeDetailPendingCount">0</div>
+                                <div id="badgeDetailPendingList" class="vstack gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mt-5">
+        <h3 class="h5 fw-bold mb-4">
+            Pending Requests
+            <span class="text-muted" id="pendingRequestsCount">({{ total_pending }})</span>
+        </h3>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Learner</th>
+                        <th>Requested Badge</th>
+                        <th>Date</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pendingBadgeTableBody">
+                    {% for request in pending_badges %}
+                    <tr data-request-row="{{ request.id }}" data-badge-id="{{ request.badge.id }}">
+                        <td>
+                            <div class="fw-bold">{{ request.user.username }}</div>
+                            <div class="small text-muted">{{ request.user.email }}</div>
+                        </td>
+                        <td><span class="badge bg-secondary text-dark">{{ request.badge.name }}</span></td>
+                        <td>{{ request.awarded_at|date:"M d, Y" }}</td>
+                        <td class="text-end">
+                            <form method="post" class="d-inline badge-request-form" data-no-loader>
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="approve_badge">
+                                <input type="hidden" name="user_badge_id" value="{{ request.id }}">
+                                <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">Approve</button>
+                            </form>
+                            <form method="post" class="d-inline badge-request-form" data-no-loader>
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject_badge">
+                                <input type="hidden" name="user_badge_id" value="{{ request.id }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tableBody = document.getElementById('pendingBadgeTableBody');
+        const pendingCountEl = document.getElementById('pendingRequestsCount');
+        const createBadgeCollapseEl = document.getElementById('createBadgeCollapse');
+        const createBadgeToggleText = document.getElementById('createBadgeToggleText');
+
+        if (createBadgeCollapseEl && createBadgeToggleText) {
+            createBadgeCollapseEl.addEventListener('show.bs.collapse', function () {
+                createBadgeToggleText.textContent = 'Hide Create Badge';
+            });
+            createBadgeCollapseEl.addEventListener('hide.bs.collapse', function () {
+                createBadgeToggleText.textContent = 'Open Create Badge';
+            });
+        }
+
+        const badgeCards = document.querySelectorAll('.badge-card');
+        const badgeDetailModalEl = document.getElementById('badgeDetailModal');
+        const badgeDetailModal = badgeDetailModalEl ? new bootstrap.Modal(badgeDetailModalEl) : null;
+        const badgeDetailTitle = document.getElementById('badgeDetailModalLabel');
+        const badgeDetailDescription = document.getElementById('badgeDetailModalDescription');
+        const badgeDetailGrantedCount = document.getElementById('badgeDetailGrantedCount');
+        const badgeDetailPendingCount = document.getElementById('badgeDetailPendingCount');
+        const badgeDetailGrantedList = document.getElementById('badgeDetailGrantedList');
+        const badgeDetailPendingList = document.getElementById('badgeDetailPendingList');
+
+        function showInlineMessage(message, type = 'success') {
+            const wrapper = document.createElement('div');
+            wrapper.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+            wrapper.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            const card = tableBody ? tableBody.closest('.glass-card') : document.querySelector('.glass-card.mt-5');
+            if (card) {
+                card.insertBefore(wrapper, card.children[1]);
+            }
+
+            setTimeout(() => {
+                wrapper.classList.remove('show');
+                wrapper.remove();
+            }, 2500);
+        }
+
+        function renderBadgeUserList(container, users, emptyText) {
+            if (!container) return;
+            if (!users.length) {
+                container.innerHTML = `<div class="text-muted small">${emptyText}</div>`;
+                return;
+            }
+            container.innerHTML = users.map((user) => `
+                <div class="badge-user-item border rounded-3 p-3">
+                    <div class="fw-semibold">${user.username}</div>
+                    <div class="small text-muted">${user.email}</div>
+                    ${user.awarded_at ? `<div class="small text-muted mt-1">Date: ${user.awarded_at}</div>` : ''}
+                    ${user.awarded_by ? `<div class="small text-muted">By: ${user.awarded_by}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function openBadgeDetailModal(badgeId) {
+            if (!badgeDetailModal) return;
+            try {
+                const response = await fetch(`?action=badge_details&badge_id=${badgeId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.error || 'Failed to load badge details.');
+                }
+                const badge = data.badge;
+                badgeDetailTitle.textContent = badge.name;
+                badgeDetailDescription.textContent = badge.description || 'No description provided.';
+                badgeDetailGrantedCount.textContent = badge.granted_count;
+                badgeDetailPendingCount.textContent = badge.pending_count;
+                renderBadgeUserList(badgeDetailGrantedList, badge.granted_users, 'No granted users yet.');
+                renderBadgeUserList(badgeDetailPendingList, badge.pending_users, 'No pending users.');
+                badgeDetailModal.show();
+            } catch (error) {
+                showInlineMessage(error.message || 'Could not load badge details.', 'danger');
+            }
+        }
+
+        badgeCards.forEach((card) => {
+            card.addEventListener('click', function () {
+                const badgeId = card.getAttribute('data-badge-id');
+                if (badgeId) {
+                    openBadgeDetailModal(badgeId);
+                }
+            });
+            card.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    const badgeId = card.getAttribute('data-badge-id');
+                    if (badgeId) {
+                        openBadgeDetailModal(badgeId);
+                    }
+                }
+            });
+        });
+
+        function updatePendingCount(newCount) {
+            if (pendingCountEl) {
+                pendingCountEl.textContent = `(${newCount})`;
+            }
+        }
+
+        function updateBadgeCardCounts(badgeId, grantedCount, pendingCount) {
+            const card = document.querySelector(`[data-badge-card="${badgeId}"]`);
+            if (!card) return;
+            const grantedEl = card.querySelector('[data-granted-count]');
+            const pendingEl = card.querySelector('[data-pending-count]');
+            if (grantedEl) grantedEl.textContent = grantedCount;
+            if (pendingEl) pendingEl.textContent = pendingCount;
+        }
+
+        function showEmptyStateIfNeeded() {
+            if (!tableBody) return;
+            if (tableBody.querySelector('tr')) return;
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        No pending badge requests.
+                    </td>
+                </tr>
+            `;
+        }
+
+        if (tableBody) {
+            document.querySelectorAll('.badge-request-form').forEach((form) => {
+                form.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const row = form.closest('tr');
+                    if (!row || !submitBtn) return;
+                    const formData = new FormData(form);
+                    const body = new URLSearchParams(formData);
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = 'Processing...';
+                    try {
+                        const response = await fetch(window.location.href, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body,
+                        });
+                        const data = await response.json();
+                        if (typeof hidePageLoader === 'function') {
+                            hidePageLoader();
+                        }
+                        if (!response.ok || !data.ok) {
+                            throw new Error(data.error || 'Action failed.');
+                        }
+                        row.remove();
+                        updatePendingCount(data.pending_total);
+                        updateBadgeCardCounts(data.badge_id, data.badge_granted, data.badge_pending);
+                        showEmptyStateIfNeeded();
+                        showInlineMessage(data.message, 'success');
+                    } catch (error) {
+                        showInlineMessage(error.message || 'Something went wrong.', 'danger');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}

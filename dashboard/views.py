@@ -233,9 +233,26 @@ def build_learning_insight_data(selected_course_id=None):
     selected_course_id = str(selected_course_id or 'all')
     all_courses = list(Course.objects.prefetch_related('modules').all())
     all_progress = CourseProgress.objects.all()
+    guide_qs = get_guide_queryset()
+    total_guides = guide_qs.count()
     total_modules = Module.objects.count()
-    modules_with_completion = Module.objects.filter(moduleprogress__completed=True).distinct().count()
-
+    if total_guides > 0:
+        modules_completed_by_all_guides = (
+            Module.objects.annotate(
+                completed_guides=Count(
+                    'moduleprogress__user',
+                    filter=Q(
+                        moduleprogress__completed=True,
+                        moduleprogress__user__in=guide_qs,
+                    ),
+                    distinct=True,
+                )
+            )
+            .filter(completed_guides=total_guides)
+            .count()
+        )
+    else:
+        modules_completed_by_all_guides = 0
     datasets = {
         'all': {
             'label': 'All Courses',
@@ -248,24 +265,47 @@ def build_learning_insight_data(selected_course_id=None):
                 ],
             },
             'module_coverage': {
-                'labels': ['Modules With Completions', 'Modules Awaiting Completion'],
+                'labels': [
+                    'Modules Completed by All Guides',
+                    'Modules Not Yet Completed by All Guides'
+                ],
                 'values': [
-                    modules_with_completion,
-                    max(total_modules - modules_with_completion, 0),
+                    modules_completed_by_all_guides,
+                    max(total_modules - modules_completed_by_all_guides, 0),
                 ],
             },
             'summary': {
                 'courses': len(all_courses),
                 'modules': total_modules,
-                'avg_progress': round(normalize_progress_value(all_progress.aggregate(avg=Avg('progress'))['avg'] or 0)),
+                'avg_progress': round(
+                    normalize_progress_value(
+                        all_progress.aggregate(avg=Avg('progress'))['avg'] or 0
+                    )
+                ),
             },
         }
     }
-
     for course in all_courses:
         course_progress = all_progress.filter(course=course)
         course_modules = course.modules.count()
-        course_completed_modules = Module.objects.filter(course=course, moduleprogress__completed=True).distinct().count()
+        if total_guides > 0:
+            course_completed_by_all_guides = (
+                Module.objects.filter(course=course)
+                .annotate(
+                    completed_guides=Count(
+                        'moduleprogress__user',
+                        filter=Q(
+                            moduleprogress__completed=True,
+                            moduleprogress__user__in=guide_qs,
+                        ),
+                        distinct=True,
+                    )
+                )
+                .filter(completed_guides=total_guides)
+                .count()
+            )
+        else:
+            course_completed_by_all_guides = 0
         datasets[str(course.id)] = {
             'label': get_display_title(course.title, fallback=f'Course {course.id}'),
             'learner_status': {
@@ -277,28 +317,36 @@ def build_learning_insight_data(selected_course_id=None):
                 ],
             },
             'module_coverage': {
-                'labels': ['Modules With Completions', 'Modules Awaiting Completion'],
+                'labels': [
+                    'Modules Completed by All Guides',
+                    'Modules Not Yet Completed by All Guides'
+                ],
                 'values': [
-                    course_completed_modules,
-                    max(course_modules - course_completed_modules, 0),
+                    course_completed_by_all_guides,
+                    max(course_modules - course_completed_by_all_guides, 0),
                 ],
             },
             'summary': {
                 'courses': 1,
                 'modules': course_modules,
-                'avg_progress': round(normalize_progress_value(course_progress.aggregate(avg=Avg('progress'))['avg'] or 0)),
+                'avg_progress': round(
+                    normalize_progress_value(
+                        course_progress.aggregate(avg=Avg('progress'))['avg'] or 0
+                    )
+                ),
             },
         }
-
     if selected_course_id not in datasets:
         selected_course_id = 'all'
-
     return {
         'selected_course_id': selected_course_id,
         'course_options': [
             {'id': 'all', 'label': 'All Courses'},
             *[
-                {'id': str(course.id), 'label': get_display_title(course.title, fallback=f'Course {course.id}')}
+                {
+                    'id': str(course.id),
+                    'label': get_display_title(course.title, fallback=f'Course {course.id}')
+                }
                 for course in all_courses
             ],
         ],
@@ -743,32 +791,66 @@ def dashboard_progress(request):
 @user_passes_test(is_staff_or_admin)
 def dashboard_badges(request):
     """Badge management and approval page"""
+    if request.method == 'GET' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        action = request.GET.get('action')
+        if action == 'badge_details':
+            badge_id = request.GET.get('badge_id')
+            badge = Badge.objects.filter(id=badge_id).first()
+            if not badge:
+                return JsonResponse({'ok': False, 'error': 'Badge not found.'}, status=404)
+            badge_users = (
+                UserBadge.objects
+                .filter(badge=badge, status__in=['granted', 'pending'])
+                .select_related('user', 'awarded_by')
+                .order_by('status', 'user__username')
+            )
+            granted_users = []
+            pending_users = []
+            for item in badge_users:
+                user_data = {
+                    'username': item.user.username,
+                    'email': item.user.email,
+                    'status': item.status,
+                    'awarded_at': item.awarded_at.strftime('%b %d, %Y %H:%M') if item.awarded_at else '',
+                    'awarded_by': item.awarded_by.username if item.awarded_by else '',
+                }
+                if item.status == 'granted':
+                    granted_users.append(user_data)
+                elif item.status == 'pending':
+                    pending_users.append(user_data)
+            return JsonResponse({
+                'ok': True,
+                'badge': {
+                    'id': badge.id,
+                    'name': badge.name,
+                    'description': badge.description or '',
+                    'granted_count': len(granted_users),
+                    'pending_count': len(pending_users),
+                    'granted_users': granted_users,
+                    'pending_users': pending_users,
+                }
+            })
     if request.method == 'POST':
         action = request.POST.get('action')
-
         if action == 'create_badge':
             name = request.POST.get('name', '').strip()
             description = request.POST.get('description', '').strip()
             course_id = request.POST.get('course_id')
             required_modules = request.POST.get('required_completed_modules') or '1'
             auto_approve = request.POST.get('auto_approve_when_eligible') == 'on'
-
             if not name:
                 messages.error(request, 'Badge name is required.')
                 return redirect('dashboard:badges')
             if Badge.objects.filter(name=name).exists():
                 messages.error(request, 'A badge with this name already exists.')
                 return redirect('dashboard:badges')
-
             course = None
             if course_id:
                 course = Course.objects.filter(id=course_id).first()
-
             try:
                 required_modules_int = max(1, int(required_modules))
             except ValueError:
                 required_modules_int = 1
-
             Badge.objects.create(
                 name=name,
                 description=description,
@@ -779,27 +861,64 @@ def dashboard_badges(request):
             )
             messages.success(request, f'Badge "{name}" created successfully.')
             return redirect('dashboard:badges')
-
         if action in ('approve_badge', 'reject_badge'):
             user_badge_id = request.POST.get('user_badge_id')
-            user_badge = UserBadge.objects.filter(id=user_badge_id).select_related('user', 'badge').first()
-            if not user_badge:
-                messages.error(request, 'Badge request not found.')
-                return redirect('dashboard:badges')
-
-            if action == 'approve_badge':
-                user_badge.status = UserBadge.STATUS_GRANTED
-                user_badge.is_awarded = True
-                user_badge.awarded_by = request.user
-                user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by'])
-                messages.success(request, f'Approved {user_badge.badge.name} for {user_badge.user.username}.')
-            else:
-                user_badge.status = UserBadge.STATUS_REJECTED
-                user_badge.is_awarded = False
-                user_badge.save(update_fields=['status', 'is_awarded'])
-                messages.success(request, f'Rejected {user_badge.badge.name} for {user_badge.user.username}.')
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            with transaction.atomic():
+                user_badge = (
+                    UserBadge.objects
+                    .select_for_update()
+                    .select_related('user', 'badge')
+                    .filter(id=user_badge_id)
+                    .first()
+                )
+                if not user_badge:
+                    if is_ajax:
+                        return JsonResponse({'ok': False, 'error': 'Badge request not found.'}, status=404)
+                    messages.error(request, 'Badge request not found.')
+                    return redirect('dashboard:badges')
+                if user_badge.status != 'pending':
+                    message = f'This badge request was already processed as {user_badge.status}.'
+                    if is_ajax:
+                        return JsonResponse({
+                            'ok': False,
+                            'error': message,
+                            'already_processed': True,
+                            'current_status': user_badge.status,
+                            'user_badge_id': user_badge.id,
+                            'badge_id': user_badge.badge_id,
+                            'pending_total': UserBadge.objects.filter(status='pending').count(),
+                        }, status=409)
+                    messages.warning(request, message)
+                    return redirect('dashboard:badges')
+                if action == 'approve_badge':
+                    user_badge.status = 'granted'
+                    user_badge.is_awarded = True
+                    user_badge.awarded_by = request.user
+                    user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by'])
+                    message_text = f'Approved {user_badge.badge.name} for {user_badge.user.username}.'
+                else:
+                    user_badge.status = 'rejected'
+                    user_badge.is_awarded = False
+                    user_badge.awarded_by = None
+                    user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by'])
+                    message_text = f'Rejected {user_badge.badge.name} for {user_badge.user.username}.'
+            if is_ajax:
+                badge_counts = Badge.objects.annotate(
+                    pending_approvals=Count('user_badges', filter=Q(user_badges__status='pending')),
+                    granted_badges=Count('user_badges', filter=Q(user_badges__status='granted')),
+                ).filter(id=user_badge.badge_id).values('pending_approvals', 'granted_badges').first()
+                return JsonResponse({
+                    'ok': True,
+                    'message': message_text,
+                    'user_badge_id': user_badge.id,
+                    'badge_id': user_badge.badge_id,
+                    'pending_total': UserBadge.objects.filter(status='pending').count(),
+                    'badge_pending': badge_counts['pending_approvals'] if badge_counts else 0,
+                    'badge_granted': badge_counts['granted_badges'] if badge_counts else 0,
+                })
+            messages.success(request, message_text)
             return redirect('dashboard:badges')
-
     # Get badges
     badges = Badge.objects.annotate(
         total_users=Count('user_badges'),
@@ -818,10 +937,8 @@ def dashboard_badges(request):
     total = pending_badges.count()
     start = (int(page) - 1) * per_page
     end = start + per_page
-    
     pending_paginated = pending_badges[start:end]
     total_pages = (total + per_page - 1) // per_page
-    
     context = {
         'badges': badges,
         'pending_badges': pending_paginated,

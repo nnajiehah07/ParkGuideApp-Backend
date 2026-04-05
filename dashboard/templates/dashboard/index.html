@@ -227,7 +227,7 @@
 
     .insight-chart-layout {
         display: grid;
-        grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
         gap: 1rem;
         align-items: center;
     }
@@ -235,7 +235,7 @@
     .insight-chart-wrap {
         position: relative;
         width: 100%;
-        max-width: 220px;
+        max-width: 280px;
         margin: 0 auto;
     }
 
@@ -596,11 +596,14 @@
                             position: config.legendPosition || 'bottom',
                             labels: {
                                 usePointStyle: true,
-                                padding: 18,
+                                pointStyle: 'circle',
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                padding: 12,
                                 color: textColor,
                                 font: {
                                     family: "'Plus Jakarta Sans', sans-serif",
-                                    size: 12,
+                                    size: 11,
                                     weight: '600',
                                 }
                             }
@@ -681,7 +684,7 @@
             if (helperEl) {
                 helperEl.textContent = selectedMetric === 'learner_status'
                     ? `Showing learner completion states for ${currentSet.label.toLowerCase()}.`
-                    : `Showing how many modules in ${currentSet.label.toLowerCase()} already have at least one completion.`;
+                    : `Showing how many modules in ${currentSet.label.toLowerCase()} have been completed by all guides.`;
             }
         }
 
