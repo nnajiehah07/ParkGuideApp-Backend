@@ -861,6 +861,32 @@ def dashboard_badges(request):
             )
             messages.success(request, f'Badge "{name}" created successfully.')
             return redirect('dashboard:badges')
+        if action == 'approve_all_badges':
+            with transaction.atomic():
+                pending_requests = list(
+                    UserBadge.objects
+                    .select_for_update()
+                    .select_related('user', 'badge')
+                    .filter(status='pending')
+                )
+
+                pending_count = len(pending_requests)
+
+                if pending_count == 0:
+                    messages.info(request, 'There are no pending badge requests to approve.')
+                    return redirect('dashboard:badges')
+
+                for user_badge in pending_requests:
+                    user_badge.status = 'granted'
+                    user_badge.is_awarded = True
+                    user_badge.awarded_by = request.user
+                    user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by'])
+
+            messages.success(
+                request,
+                f'Approved {pending_count} badge request{"s" if pending_count != 1 else ""}.'
+            )
+            return redirect('dashboard:badges')
         if action in ('approve_badge', 'reject_badge'):
             user_badge_id = request.POST.get('user_badge_id')
             is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
