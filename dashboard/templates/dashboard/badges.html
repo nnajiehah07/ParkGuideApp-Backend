@@ -245,6 +245,51 @@
 {% block content %}
 <div class="badges-page-content">
     <div class="glass-card mb-4">
+        <h3 class="h5 fw-bold mb-4">
+            Pending Requests
+            <span class="text-muted" id="pendingRequestsCount">({{ total_pending }})</span>
+        </h3>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Learner</th>
+                        <th>Requested Badge</th>
+                        <th>Date</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pendingBadgeTableBody">
+                    {% for request in pending_badges %}
+                    <tr data-request-row="{{ request.id }}" data-badge-id="{{ request.badge.id }}">
+                        <td>
+                            <div class="fw-bold">{{ request.user.username }}</div>
+                            <div class="small text-muted">{{ request.user.email }}</div>
+                        </td>
+                        <td><span class="badge bg-secondary text-dark">{{ request.badge.name }}</span></td>
+                        <td>{{ request.awarded_at|date:"M d, Y" }}</td>
+                        <td class="text-end">
+                            <form method="post" class="d-inline badge-request-form" data-no-loader>
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="approve_badge">
+                                <input type="hidden" name="user_badge_id" value="{{ request.id }}">
+                                <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">Approve</button>
+                            </form>
+                            <form method="post" class="d-inline badge-request-form" data-no-loader>
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject_badge">
+                                <input type="hidden" name="user_badge_id" value="{{ request.id }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4">
         <div class="create-badge-header">
             <div>
                 <h3 class="h5 fw-bold mb-1">Create Badge</h3>
@@ -353,50 +398,7 @@
         </div>
     </div>
 
-    <div class="glass-card mt-5">
-        <h3 class="h5 fw-bold mb-4">
-            Pending Requests
-            <span class="text-muted" id="pendingRequestsCount">({{ total_pending }})</span>
-        </h3>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Learner</th>
-                        <th>Requested Badge</th>
-                        <th>Date</th>
-                        <th class="text-end">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="pendingBadgeTableBody">
-                    {% for request in pending_badges %}
-                    <tr data-request-row="{{ request.id }}" data-badge-id="{{ request.badge.id }}">
-                        <td>
-                            <div class="fw-bold">{{ request.user.username }}</div>
-                            <div class="small text-muted">{{ request.user.email }}</div>
-                        </td>
-                        <td><span class="badge bg-secondary text-dark">{{ request.badge.name }}</span></td>
-                        <td>{{ request.awarded_at|date:"M d, Y" }}</td>
-                        <td class="text-end">
-                            <form method="post" class="d-inline badge-request-form" data-no-loader>
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="approve_badge">
-                                <input type="hidden" name="user_badge_id" value="{{ request.id }}">
-                                <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">Approve</button>
-                            </form>
-                            <form method="post" class="d-inline badge-request-form" data-no-loader>
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="reject_badge">
-                                <input type="hidden" name="user_badge_id" value="{{ request.id }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">Reject</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+    
 </div>
 
 <script>
