@@ -19,6 +19,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from notifications.models import Notification, UserNotification
 from rest_framework import generics, permissions, serializers, status, throttling
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -28,9 +29,11 @@ from .models import AccountApplication, PasskeyCredential, PasswordResetCode, Tw
 from .serializers import (
     AccountApplicationSerializer,
     PasskeyCredentialSerializer,
+    ProfileSerializer,
     RegisterSerializer,
     TwoFactorAuthSerializer,
 )
+from .services import delete_profile_image, upload_profile_image
 
 User = get_user_model()
 
@@ -245,6 +248,32 @@ def _get_credential_id_from_payload(payload):
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+
+
+class ProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = ProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_object(self):
+        return self.request.user
+
+    def partial_update(self, request, *args, **kwargs):
+        user = self.get_object()
+        previous_profile_image = user.profile_image_path
+        serializer = self.get_serializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        uploaded_profile_image = serializer.validated_data.get('profile_image')
+        self.perform_update(serializer)
+
+        if uploaded_profile_image:
+            user.profile_image_path = upload_profile_image(uploaded_profile_image, user)
+            user.save(update_fields=['profile_image_path'])
+            if previous_profile_image and previous_profile_image != user.profile_image_path:
+                delete_profile_image(previous_profile_image)
+
+        refreshed = self.get_serializer(user)
+        return Response(refreshed.data)
 
 
 class AccountApplicationCreateView(generics.CreateAPIView):

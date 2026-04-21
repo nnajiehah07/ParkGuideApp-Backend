@@ -62,3 +62,41 @@ def delete_application_cv(storage_key):
     bucket = storage.bucket()
     blob = bucket.blob(storage_key)
     blob.delete()
+
+
+def upload_profile_image(uploaded_file, user):
+    _ensure_firebase_initialized()
+
+    bucket = storage.bucket()
+    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+    user_segment = _safe_name(user.email.split('@')[0] if user and user.email else user.username or 'user') or 'user'
+    file_name = _safe_name(uploaded_file.name) or f'profile_{timestamp}.jpg'
+    blob_path = os.path.join('profiles', user_segment, f'{timestamp}_{file_name}').replace('\\', '/')
+
+    blob = bucket.blob(blob_path)
+    blob.upload_from_file(uploaded_file, content_type=getattr(uploaded_file, 'content_type', None))
+
+    return blob_path
+
+
+def generate_profile_image_url(storage_key, expires_seconds=3600):
+    if not storage_key:
+        return ''
+
+    _ensure_firebase_initialized()
+    bucket = storage.bucket()
+    blob = bucket.blob(storage_key)
+    return blob.generate_signed_url(datetime.timedelta(seconds=expires_seconds), method='GET')
+
+
+def delete_profile_image(storage_key):
+    if not storage_key:
+        return
+
+    _ensure_firebase_initialized()
+    bucket = storage.bucket()
+    blob = bucket.blob(storage_key)
+    try:
+        blob.delete()
+    except Exception:
+        pass

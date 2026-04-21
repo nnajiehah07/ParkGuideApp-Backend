@@ -2,14 +2,150 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count
 from django.utils import timezone
 from courses.models import ModuleProgress, ChapterProgress
+from django.conf import settings
 from notifications.services import create_notification_for_staff, create_notification_for_user
+from secure_files.services.firebase_storage import generate_download_url
 from .models import Badge, UserBadge
+
+DEFAULT_BADGE_STORAGE_PATH = 'assests/badges'
+DEFAULT_BADGE_FILENAMES = {
+    'park-guide-101': 'park-guide-101.jpg',
+    'park-guide-201': 'park-guide-201.jpg',
+    'park-guide-301': 'park-guide-301.jpg',
+    'park-guide-401': 'park-guide-401.png',
+    'park-guide-501': 'park-guide-501.jpg',
+}
+
+
+def get_course_badge_requirement_count(course):
+    """Use the fuller of legacy modules or chapter-based content as the completion requirement."""
+    module_count = course.modules.count() if hasattr(course, 'modules') else 0
+    chapter_count = course.chapters.count() if hasattr(course, 'chapters') else 0
+    return max(module_count, chapter_count, 1)
+
+
+def get_default_badge_blob_path(course):
+    filename = DEFAULT_BADGE_FILENAMES.get(course.code)
+    if not filename:
+        return ''
+    return f'{DEFAULT_BADGE_STORAGE_PATH}/{filename}'
+
+
+def build_firebase_media_url(blob_path):
+    if not blob_path:
+        return ''
+    bucket_name = getattr(settings, 'FIREBASE_STORAGE_BUCKET', '').strip()
+    if not bucket_name:
+        return ''
+    encoded_path = blob_path.replace('/', '%2F')
+    return f'https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{encoded_path}?alt=media'
+
+
+def get_badge_storage_path(value):
+    if not value:
+        return ''
+
+    value = value.strip()
+    bucket_name = getattr(settings, 'FIREBASE_STORAGE_BUCKET', '').strip()
+
+    if value.startswith('gs://'):
+        path = value.split('/', 3)
+        return path[3] if len(path) > 3 else ''
+
+    firebase_prefix = f'https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/'
+    if bucket_name and value.startswith(firebase_prefix):
+        encoded_part = value[len(firebase_prefix):].split('?', 1)[0]
+        return encoded_part.replace('%2F', '/')
+
+    if value.startswith(f'{DEFAULT_BADGE_STORAGE_PATH}/'):
+        return value
+
+    return ''
+
+
+def get_badge_image_access_url(raw_value):
+    storage_path = get_badge_storage_path(raw_value)
+    if storage_path:
+        try:
+            return generate_download_url(storage_path)
+        except Exception:
+            return raw_value
+    return raw_value
+
+
+def build_course_badge_metadata(course):
+    course_title = course.title.get('en', f'Course {course.id}')
+    course_description = (course.description or {}).get('en', '').strip()
+    skills_awarded = list(
+        course.chapters.order_by('order').values_list('title__en', flat=True)
+    )
+    lesson_highlights = list(
+        course.chapters.order_by('order', 'lessons__order').values_list('lessons__title__en', flat=True)
+    )
+
+    summary_bits = []
+    if skills_awarded:
+        summary_bits.append(f"Skills covered: {', '.join(skills_awarded[:4])}")
+    if lesson_highlights:
+        summary_bits.append(f"Lessons completed: {', '.join(lesson_highlights[:4])}")
+
+    default_blob_path = get_default_badge_blob_path(course)
+    default_image_url = build_firebase_media_url(default_blob_path)
+
+    return {
+        'name': f'{course_title} Completion Badge',
+        'description': course_description or f'Awarded for completing the {course_title} course.',
+        'badge_image_url': default_blob_path or course.thumbnail or '',
+        'badge_image_source': default_blob_path or course.thumbnail or '',
+        'skills_awarded': skills_awarded,
+        'lesson_highlights': lesson_highlights,
+        'required_completed_modules': get_course_badge_requirement_count(course),
+        'required_badges_count': 0,
+        'course': course,
+        'is_major_badge': False,
+        'is_active': True,
+        'auto_approve_when_eligible': False,
+    }
+
+
+def create_or_update_course_badge(course):
+    badge_defaults = build_course_badge_metadata(course)
+    badge = Badge.objects.filter(course=course, is_major_badge=False).order_by('id').first()
+    if badge:
+        badge.name = badge_defaults['name']
+        badge.course = course
+        badge.required_completed_modules = badge_defaults['required_completed_modules']
+        badge.required_badges_count = 0
+        badge.is_major_badge = False
+        badge.is_active = True
+        badge.auto_approve_when_eligible = False
+
+        if not (badge.description or '').strip():
+            badge.description = badge_defaults['description']
+        if not (badge.badge_image_url or '').strip():
+            badge.badge_image_url = badge_defaults['badge_image_url']
+        if not (badge.badge_image_source or '').strip():
+            badge.badge_image_source = badge_defaults['badge_image_source']
+        if not badge.skills_awarded:
+            badge.skills_awarded = badge_defaults['skills_awarded']
+        if not badge.lesson_highlights:
+            badge.lesson_highlights = badge_defaults['lesson_highlights']
+
+        badge.save()
+        return badge
+
+    badge = Badge.objects.create(**badge_defaults)
+    return badge
+
 
 def notify_badge_pending_for_admins(user_badge, admin_user=None):
     create_notification_for_staff(
         title=f'Badge approval needed: {user_badge.badge.name}',
-        description=f'{user_badge.user.email} is ready for badge review.',
-        full_text=(f'{user_badge.user.email} has met the requirement for "{user_badge.badge.name}" ' f'and is now pending approval.'),
+        description=f'{user_badge.user.email} completed the required course and is ready for badge review.',
+        full_text=(
+            f'{user_badge.user.email} has completed the requirement for "{user_badge.badge.name}" '
+            f'and the badge is now pending admin approval.'
+        ),
         created_by=admin_user,
         related_user=user_badge.user,
     )
@@ -19,8 +155,11 @@ def notify_badge_granted_to_user(user_badge, admin_user=None):
     create_notification_for_user(
         user=user_badge.user,
         title=f'Badge granted: {user_badge.badge.name}',
-        description='A badge has been awarded to your account.',
-        full_text=(f'Congratulations.\nYour badge "{user_badge.badge.name}" has been granted' f'{f" by {admin_user.email}" if admin_user else ""}.'),
+        description='Your completed course badge has been approved.',
+        full_text=(
+            f'Congratulations.\nYour badge "{user_badge.badge.name}" has been approved and granted'
+            f'{f" by {admin_user.email}" if admin_user else ""}.'
+        ),
         created_by=admin_user,
         related_user=user_badge.user,
     )
@@ -147,32 +286,14 @@ def grant_course_completion_badge(user, course):
     """
     from django.db.models import Q
     
-    # Get or create the course completion badge
-    badge_name = f"{course.code} Master"
-    badge = Badge.objects.filter(
-        name=badge_name,
-        course=course,
-        is_major_badge=False
-    ).first()
-    
-    if not badge:
-        # Create badge if it doesn't exist
-        badge = Badge.objects.create(
-            name=badge_name,
-            description=f'Completed the {course.title.get("en", "Course")} course ({course.code})',
-            course=course,
-            is_major_badge=False,
-            required_completed_modules=1,
-            auto_approve_when_eligible=True,
-            is_active=True,
-        )
+    badge = create_or_update_course_badge(course)
     
     # Check if user already has this badge in granted status
     user_badge_qs = UserBadge.objects.filter(user=user, badge=badge)
     if user_badge_qs.filter(status='granted', is_awarded=True).exists():
         return False  # Already has this badge
     
-    # Get or create the user badge - start as PENDING for admin approval
+    # Course badges always go through admin review after completion.
     user_badge, created = UserBadge.objects.get_or_create(
         user=user,
         badge=badge,
@@ -184,15 +305,12 @@ def grant_course_completion_badge(user, course):
     )
     
     if created:
-        # New pending badge - notify admins for approval
         notify_badge_pending_for_admins(user_badge, admin_user=None)
-        # Check for achievement badges after course badge created
         check_and_grant_achievement_badges(user)
         return True
     
     # Badge already exists but in different status
     if user_badge.status in ['pending', 'in_progress', 'rejected']:
-        # Reactivate pending badge
         user_badge.status = UserBadge.STATUS_PENDING
         user_badge.is_awarded = False
         user_badge.awarded_at = timezone.now()

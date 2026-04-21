@@ -57,4 +57,5 @@ class MyBadgeViewSet(viewsets.ReadOnlyModelViewSet):
         return UserBadge.objects.filter(
             user=self.request.user,
             status=UserBadge.STATUS_GRANTED,
+            is_awarded=True,
         ).select_related('badge', 'badge__course')

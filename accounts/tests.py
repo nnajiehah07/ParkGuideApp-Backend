@@ -1,8 +1,10 @@
 import json
+import base64
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -10,6 +12,11 @@ from rest_framework.test import APITestCase
 from .models import PasskeyCredential
 
 User = get_user_model()
+
+_ONE_PIXEL_PNG_BASE64 = (
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2Q2ioAAAAASUVORK5CYII='
+)
+_ONE_PIXEL_PNG_BYTES = base64.b64decode(_ONE_PIXEL_PNG_BASE64)
 
 
 class _DummyDescriptor:
@@ -196,3 +203,50 @@ class PasskeyApiTests(APITestCase):
         credential = PasskeyCredential.objects.get(credential_id='cred-1')
         self.assertEqual(credential.sign_count, 9)
         self.assertIsNotNone(credential.last_used_at)
+
+
+class ProfileApiTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='profileuser',
+            email='profile@example.com',
+            password='TempPass123!',
+        )
+        self.client.force_authenticate(user=self.user)
+
+    @patch('accounts.serializers.generate_profile_image_url', return_value='')
+    @patch('accounts.views.upload_profile_image', return_value='profiles/profileuser/image.png')
+    def test_profile_patch_accepts_base64_image(self, mocked_upload, mocked_image_url):
+        data_url = f'data:image/png;base64,{_ONE_PIXEL_PNG_BASE64}'
+        response = self.client.patch(
+            reverse('profile'),
+            {
+                'name': 'Profile User',
+                'profile_image': data_url,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile_image_path, 'profiles/profileuser/image.png')
+        self.assertEqual(self.user.first_name, 'Profile')
+        self.assertEqual(self.user.last_name, 'User')
+        mocked_upload.assert_called_once()
+
+    @patch('accounts.serializers.generate_profile_image_url', return_value='')
+    @patch('accounts.views.upload_profile_image', return_value='profiles/profileuser/uploaded.png')
+    def test_profile_patch_accepts_multipart_image(self, mocked_upload, mocked_image_url):
+        uploaded_file = SimpleUploadedFile('avatar.png', _ONE_PIXEL_PNG_BYTES, content_type='image/png')
+        response = self.client.patch(
+            reverse('profile'),
+            {
+                'profile_image': uploaded_file,
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile_image_path, 'profiles/profileuser/uploaded.png')
+        mocked_upload.assert_called_once()

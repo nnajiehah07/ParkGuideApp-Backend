@@ -7,6 +7,10 @@ from courses.models import CourseProgress, ModuleProgress
 class Badge(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
+    badge_image_url = models.URLField(blank=True)
+    badge_image_source = models.URLField(blank=True)
+    skills_awarded = models.JSONField(default=list, blank=True)
+    lesson_highlights = models.JSONField(default=list, blank=True)
     course = models.ForeignKey(
         'courses.Course',
         null=True,

@@ -5,7 +5,7 @@ from django.db.models.signals import post_save
 from courses.models import Course
 from user_progress.models import Badge
 from user_progress.signals import sync_badges_when_badge_changes
-from user_progress.services import sync_all_badges_for_all_users
+from user_progress.services import create_or_update_course_badge, sync_all_badges_for_all_users
 
 
 class Command(BaseCommand):
@@ -31,78 +31,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No courses found. Load training courses first.'))
             return
 
-        course_badges = []
         created_count = 0
         updated_count = 0
 
         for course in courses:
-            module_count = max(1, course.modules.count())
-            course_title = course.title.get('en', f'Course {course.id}')
-            badge_name = f'{course_title} Completion'
-            payload = {
-                'description': f'Complete all modules in {course_title}.',
-                'required_completed_modules': module_count,
-                'required_badges_count': 0,
-                'course': course,
-                'is_major_badge': False,
-                'is_active': True,
-                'auto_approve_when_eligible': False,
-            }
-            badge, created = Badge.objects.update_or_create(
-                name=badge_name,
-                defaults=payload,
-            )
-            course_badges.append(badge)
-            if created:
-                created_count += 1
-            else:
+            existed = Badge.objects.filter(course=course, is_major_badge=False).exists()
+            create_or_update_course_badge(course)
+            if existed:
                 updated_count += 1
-
-        course_badge_count = len(course_badges)
-        half_badges = max(1, course_badge_count // 2)
-
-        major_badges = [
-            {
-                'name': 'Training Starter',
-                'description': 'Earn at least 1 course completion badge.',
-                'required_completed_modules': 0,
-                'required_badges_count': 1,
-                'course': None,
-                'is_major_badge': True,
-                'is_active': True,
-                'auto_approve_when_eligible': True,
-            },
-            {
-                'name': 'Training Explorer',
-                'description': 'Earn at least half of all course completion badges.',
-                'required_completed_modules': 0,
-                'required_badges_count': half_badges,
-                'course': None,
-                'is_major_badge': True,
-                'is_active': True,
-                'auto_approve_when_eligible': True,
-            },
-            {
-                'name': 'Training Master',
-                'description': 'Earn all course completion badges.',
-                'required_completed_modules': 0,
-                'required_badges_count': max(1, course_badge_count),
-                'course': None,
-                'is_major_badge': True,
-                'is_active': True,
-                'auto_approve_when_eligible': True,
-            },
-        ]
-
-        for payload in major_badges:
-            _, created = Badge.objects.update_or_create(
-                name=payload['name'],
-                defaults=payload,
-            )
-            if created:
-                created_count += 1
             else:
-                updated_count += 1
+                created_count += 1
 
         try:
             if no_sync:

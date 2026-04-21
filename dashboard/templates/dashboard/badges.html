@@ -125,14 +125,80 @@
     .badge-art {
         width: 100px;
         height: 100px;
-        background: var(--bg-body);
-        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(17, 94, 89, 0.12), rgba(234, 179, 8, 0.18));
+        border-radius: 24px;
         margin: 0 auto 1.5rem;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 2.5rem;
         border: 4px solid var(--border);
+        overflow: hidden;
+    }
+
+    .badge-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .badge-course-tag,
+    .badge-meta-pill {
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+
+    .badge-course-tag {
+        background: rgba(17, 94, 89, 0.12);
+        color: #115e59;
+        margin-bottom: 0.9rem;
+    }
+
+    .badge-meta-pill {
+        background: rgba(15, 23, 42, 0.06);
+        color: #334155;
+    }
+
+    .badge-pill-row {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .badge-skill-list {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.45rem;
+        margin-bottom: 1rem;
+    }
+
+    .badge-skill-chip {
+        background: rgba(234, 179, 8, 0.14);
+        color: #854d0e;
+        border-radius: 999px;
+        padding: 0.28rem 0.68rem;
+        font-size: 0.73rem;
+        font-weight: 600;
+    }
+
+    .badge-source-link {
+        color: #0f766e;
+        text-decoration: none;
+    }
+
+    .badge-source-link:hover {
+        text-decoration: underline;
     }
 
     .badge-title {
@@ -282,16 +348,25 @@
                 Pending Requests
                 <span class="text-muted" id="pendingRequestsCount">({{ total_pending }})</span>
             </h3>
-            <form method="post" onsubmit="return confirm('Approve all pending badge requests?');">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="approve_all_badges">
-                <button
-                    type="submit"
-                    class="btn btn-success rounded-pill px-4"
-                    {% if not total_pending %}disabled{% endif %}>
-                    Approve All Requests
-                </button>
-            </form>
+            <div class="d-flex flex-wrap gap-2">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sync_course_badges">
+                    <button type="submit" class="btn btn-outline-primary rounded-pill px-4">
+                        Generate From Courses
+                    </button>
+                </form>
+                <form method="post" onsubmit="return confirm('Approve all pending badge requests?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve_all_badges">
+                    <button
+                        type="submit"
+                        class="btn btn-success rounded-pill px-4"
+                        {% if not total_pending %}disabled{% endif %}>
+                        Approve All Requests
+                    </button>
+                </form>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -337,7 +412,7 @@
     <div class="glass-card mb-4">
         <div class="create-badge-header">
             <div>
-                <h3 class="h5 fw-bold mb-1">Create Badge</h3>
+                <h3 class="h5 fw-bold mb-1" id="badgeFormHeading">Create Badge</h3>
             </div>
             <button
                 class="btn btn-outline-success create-badge-toggle"
@@ -353,36 +428,56 @@
         </div>
         <div class="collapse" id="createBadgeCollapse">
             <div class="create-badge-body">
-                <form method="post" class="row g-3">
+                <form method="post" class="row g-3" id="badgeForm">
                     {% csrf_token %}
-                    <input type="hidden" name="action" value="create_badge">
+                    <input type="hidden" name="action" value="save_badge">
+                    <input type="hidden" name="badge_id" id="badgeIdInput" value="">
+                    <input type="hidden" name="badge_image_storage_path" id="badgeImageStoragePathInput" value="">
                     <div class="col-md-4">
                         <label class="form-label">Badge Name</label>
-                        <input type="text" name="name" class="form-control" required>
+                        <input type="text" name="name" class="form-control" required id="badgeNameInput">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Related Course</label>
-                        <select name="course_id" class="form-select">
+                        <select name="course_id" class="form-select" id="badgeCourseSelect">
                             <option value="">General badge</option>
                             {% for course in courses %}
-                                <option value="{{ course.id }}">{{ course.title.en|default:"Untitled Course" }}</option>
+                                <option value="{{ course.id }}" data-required="{{ course.badge_requirement }}" data-default-image-url="{{ course.badge_default_image_url|default:'' }}" data-default-image-storage-path="{{ course.badge_default_image_storage_path|default:'' }}">{{ course.title.en|default:"Untitled Course" }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Required Completed Modules</label>
-                        <input type="number" min="1" name="required_completed_modules" class="form-control" value="1" required>
+                        <label class="form-label">Completion Requirement</label>
+                        <input type="number" min="1" name="required_completed_modules" class="form-control" value="1" required id="requiredModulesInput">
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Description</label>
-                        <textarea name="description" class="form-control" rows="2"></textarea>
+                        <label class="form-label">Badge Info</label>
+                        <textarea name="description" class="form-control" rows="2" id="badgeDescriptionInput"></textarea>
                     </div>
-                    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="auto_approve_when_eligible" id="autoApproveBadge">
-                            <label class="form-check-label" for="autoApproveBadge">Auto approve when eligible</label>
+                    <div class="col-md-6">
+                        <label class="form-label">Badge Image URL</label>
+                        <div class="d-flex gap-2">
+                            <input type="url" name="badge_image_url" class="form-control" placeholder="https://..." id="badgeImageUrlInput">
+                            <button type="button" class="btn btn-outline-primary text-nowrap" id="useDefaultBadgeImageBtn">
+                                Use Firebase Default
+                            </button>
                         </div>
-                        <button type="submit" class="btn btn-success rounded-pill px-4">Create Badge</button>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Image Source URL</label>
+                        <input type="url" name="badge_image_source" class="form-control" placeholder="https://..." id="badgeImageSourceInput">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Skills Awarded</label>
+                        <textarea name="skills_awarded" class="form-control" rows="4" placeholder="One skill/topic per line" id="badgeSkillsInput"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Lesson Highlights</label>
+                        <textarea name="lesson_highlights" class="form-control" rows="4" placeholder="One lesson per line" id="badgeLessonsInput"></textarea>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end align-items-center flex-wrap gap-3">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="badgeFormResetBtn">Reset</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4" id="badgeFormSubmitBtn">Save Badge</button>
                     </div>
                 </form>
             </div>
@@ -415,9 +510,35 @@
                         aria-label="Select {{ badge.name }}"
                         onclick="event.stopPropagation();">
                 </div>
-                <div class="badge-art"><i class="bi bi-patch-check-fill"></i></div>
+                <div class="badge-art">
+                    {% if badge.display_badge_image_url %}
+                    <img src="{{ badge.display_badge_image_url }}" alt="{{ badge.name }}">
+                    {% else %}
+                    <i class="bi bi-patch-check-fill"></i>
+                    {% endif %}
+                </div>
+                {% if badge.course %}
+                <div class="badge-course-tag">{{ badge.course.title.en|default:"Course Badge" }}</div>
+                {% endif %}
                 <h4 class="fw-bold badge-title">{{ badge.name }}</h4>
                 <p class="text-muted small badge-description">{{ badge.description }}</p>
+                <div class="badge-pill-row">
+                    <span class="badge-meta-pill">
+                        <i class="bi bi-check2-square"></i>
+                        {{ badge.required_completed_modules }} steps
+                    </span>
+                    <span class="badge-meta-pill">
+                        <i class="bi bi-journal-check"></i>
+                        {{ badge.lesson_highlights|length }} lessons
+                    </span>
+                </div>
+                {% if badge.skills_awarded %}
+                <div class="badge-skill-list">
+                    {% for skill in badge.skills_awarded|slice:":3" %}
+                    <span class="badge-skill-chip">{{ skill }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 <div class="row border-top pt-3 badge-stats">
                     <div class="col-6 border-end">
                         <div class="small text-muted">GRANTED</div>
@@ -440,11 +561,29 @@
                     <div>
                         <h5 class="modal-title fw-bold" id="badgeDetailModalLabel">Badge Details</h5>
                         <div class="small text-muted" id="badgeDetailModalDescription"></div>
+                        <div class="small mt-2" id="badgeDetailModalMeta"></div>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="glass-card h-100 text-center">
+                                <div class="badge-art mx-auto mb-3" id="badgeDetailArt"><i class="bi bi-patch-check-fill"></i></div>
+                                <div class="small text-muted" id="badgeDetailImageSourceWrap"></div>
+                                <div class="small text-muted mt-2" id="badgeDetailImageStoragePath"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="glass-card h-100">
+                                <div class="small text-muted mb-2">Skills</div>
+                                <div id="badgeDetailSkills" class="badge-skill-list justify-content-start mb-3"></div>
+                                <div class="small text-muted mb-2">Lesson Highlights</div>
+                                <div id="badgeDetailLessons" class="small text-body-secondary"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <div class="glass-card h-100">
@@ -465,6 +604,9 @@
                 </div>
 
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary rounded-pill px-4" id="editBadgeBtn">
+                        Edit badge
+                    </button>
                     <form method="post" class="ms-auto" onsubmit="return confirm('Delete this badge? This will remove it from all users.');">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="delete_badge">
@@ -487,10 +629,26 @@
         const pendingCountEl = document.getElementById('pendingRequestsCount');
         const createBadgeCollapseEl = document.getElementById('createBadgeCollapse');
         const createBadgeToggleText = document.getElementById('createBadgeToggleText');
+        const badgeFormHeading = document.getElementById('badgeFormHeading');
+        const badgeForm = document.getElementById('badgeForm');
+        const badgeIdInput = document.getElementById('badgeIdInput');
+        const badgeImageStoragePathInput = document.getElementById('badgeImageStoragePathInput');
+        const badgeNameInput = document.getElementById('badgeNameInput');
+        const badgeCourseSelect = document.getElementById('badgeCourseSelect');
+        const requiredModulesInput = document.getElementById('requiredModulesInput');
+        const badgeDescriptionInput = document.getElementById('badgeDescriptionInput');
+        const badgeImageUrlInput = document.getElementById('badgeImageUrlInput');
+        const badgeImageSourceInput = document.getElementById('badgeImageSourceInput');
+        const useDefaultBadgeImageBtn = document.getElementById('useDefaultBadgeImageBtn');
+        const badgeSkillsInput = document.getElementById('badgeSkillsInput');
+        const badgeLessonsInput = document.getElementById('badgeLessonsInput');
+        const badgeFormSubmitBtn = document.getElementById('badgeFormSubmitBtn');
+        const badgeFormResetBtn = document.getElementById('badgeFormResetBtn');
         const selectAllBadgesEl = document.getElementById('selectAllBadges');
         const deleteSelectedBadgesBtn = document.getElementById('deleteSelectedBadgesBtn');
         const badgeDeleteIdEl = document.getElementById('badgeDeleteId');
         const deleteSingleBadgeBtn = document.getElementById('deleteSingleBadgeBtn');
+        const editBadgeBtn = document.getElementById('editBadgeBtn');
 
         if (createBadgeCollapseEl && createBadgeToggleText) {
             createBadgeCollapseEl.addEventListener('show.bs.collapse', function () {
@@ -506,11 +664,61 @@
         const badgeDetailModal = badgeDetailModalEl ? new bootstrap.Modal(badgeDetailModalEl) : null;
         const badgeDetailTitle = document.getElementById('badgeDetailModalLabel');
         const badgeDetailDescription = document.getElementById('badgeDetailModalDescription');
+        const badgeDetailMeta = document.getElementById('badgeDetailModalMeta');
+        const badgeDetailArt = document.getElementById('badgeDetailArt');
+        const badgeDetailImageSourceWrap = document.getElementById('badgeDetailImageSourceWrap');
+        const badgeDetailImageStoragePath = document.getElementById('badgeDetailImageStoragePath');
+        const badgeDetailSkills = document.getElementById('badgeDetailSkills');
+        const badgeDetailLessons = document.getElementById('badgeDetailLessons');
         const badgeDetailGrantedCount = document.getElementById('badgeDetailGrantedCount');
         const badgeDetailPendingCount = document.getElementById('badgeDetailPendingCount');
         const badgeDetailGrantedList = document.getElementById('badgeDetailGrantedList');
         const badgeDetailPendingList = document.getElementById('badgeDetailPendingList');
         let activeBadgeRequest = false;
+        let activeBadgeDetails = null;
+
+        function resetBadgeForm() {
+            if (badgeForm) badgeForm.reset();
+            if (badgeIdInput) badgeIdInput.value = '';
+            if (badgeImageStoragePathInput) badgeImageStoragePathInput.value = '';
+            if (badgeFormHeading) badgeFormHeading.textContent = 'Create Badge';
+            if (badgeFormSubmitBtn) badgeFormSubmitBtn.textContent = 'Save Badge';
+            if (requiredModulesInput) requiredModulesInput.value = '1';
+        }
+
+        function populateBadgeForm(badge) {
+            if (!badge) return;
+            if (badgeIdInput) badgeIdInput.value = badge.id || '';
+            if (badgeNameInput) badgeNameInput.value = badge.name || '';
+            if (badgeCourseSelect) badgeCourseSelect.value = badge.course_id || '';
+            if (requiredModulesInput) requiredModulesInput.value = badge.required_completed_modules || 1;
+            if (badgeDescriptionInput) badgeDescriptionInput.value = badge.description || '';
+            if (badgeImageUrlInput) badgeImageUrlInput.value = badge.badge_image_url || '';
+            if (badgeImageStoragePathInput) badgeImageStoragePathInput.value = badge.raw_badge_image_url || '';
+            if (badgeImageSourceInput) badgeImageSourceInput.value = badge.badge_image_source || '';
+            if (badgeSkillsInput) badgeSkillsInput.value = (badge.skills_awarded || []).join('\n');
+            if (badgeLessonsInput) badgeLessonsInput.value = (badge.lesson_highlights || []).join('\n');
+            if (badgeFormHeading) badgeFormHeading.textContent = `Edit Badge: ${badge.name}`;
+            if (badgeFormSubmitBtn) badgeFormSubmitBtn.textContent = 'Update Badge';
+            if (createBadgeCollapseEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Collapse.getOrCreateInstance(createBadgeCollapseEl).show();
+            }
+            if (badgeForm) {
+                badgeForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function getSelectedCourseDefaultImageUrl() {
+            if (!badgeCourseSelect) return '';
+            const selected = badgeCourseSelect.options[badgeCourseSelect.selectedIndex];
+            return selected ? (selected.getAttribute('data-default-image-url') || '') : '';
+        }
+
+        function getSelectedCourseDefaultImageStoragePath() {
+            if (!badgeCourseSelect) return '';
+            const selected = badgeCourseSelect.options[badgeCourseSelect.selectedIndex];
+            return selected ? (selected.getAttribute('data-default-image-storage-path') || '') : '';
+        }
 
         function showInlineMessage(message, type = 'success') {
             const wrapper = document.createElement('div');
@@ -547,6 +755,28 @@
             `).join('');
         }
 
+        function renderSkillList(container, items, emptyText) {
+            if (!container) return;
+            if (!items || !items.length) {
+                container.innerHTML = `<div class="text-muted small">${emptyText}</div>`;
+                return;
+            }
+            container.innerHTML = items.map((item) => `<span class="badge-skill-chip">${item}</span>`).join('');
+        }
+
+        function renderLessonList(container, items, emptyText) {
+            if (!container) return;
+            if (!items || !items.length) {
+                container.innerHTML = `<div class="text-muted small">${emptyText}</div>`;
+                return;
+            }
+            container.innerHTML = `
+                <ul class="mb-0 ps-3">
+                    ${items.map((item) => `<li class="mb-1">${item}</li>`).join('')}
+                </ul>
+            `;
+        }
+
         async function openBadgeDetailModal(badgeId) {
             if (!badgeDetailModal || !badgeId || activeBadgeRequest) return;
             activeBadgeRequest = true;
@@ -566,6 +796,7 @@
                     throw new Error(data.error || 'Failed to load badge details.');
                 }
                 const badge = data.badge;
+                activeBadgeDetails = badge;
                 
                 // Separate users by status
                 const grantedUsers = badge.users ? badge.users.filter(u => u.status === 'granted' && u.is_awarded) : [];
@@ -573,6 +804,23 @@
                 
                 badgeDetailTitle.textContent = badge.name;
                 badgeDetailDescription.textContent = badge.description || 'No description provided.';
+                badgeDetailMeta.textContent = [
+                    badge.course_title ? `Course: ${badge.course_title}` : '',
+                    badge.required_completed_modules ? `Requirement: ${badge.required_completed_modules} completed steps` : '',
+                ].filter(Boolean).join(' • ');
+                badgeDetailArt.innerHTML = badge.badge_image_url
+                    ? `<img src="${badge.badge_image_url}" alt="${badge.name}">`
+                    : '<i class="bi bi-patch-check-fill"></i>';
+                badgeDetailImageSourceWrap.innerHTML = badge.badge_image_source
+                    ? `<a class="badge-source-link small" href="${badge.badge_image_source}" target="_blank" rel="noopener noreferrer">Image source</a>`
+                    : '<span class="text-muted small">No image source</span>';
+                if (badgeDetailImageStoragePath) {
+                    badgeDetailImageStoragePath.textContent = badge.raw_badge_image_url
+                        ? `Storage path: ${badge.raw_badge_image_url}`
+                        : '';
+                }
+                renderSkillList(badgeDetailSkills, badge.skills_awarded, 'No skills listed yet.');
+                renderLessonList(badgeDetailLessons, badge.lesson_highlights, 'No lesson highlights listed yet.');
                 badgeDetailGrantedCount.textContent = grantedUsers.length;
                 badgeDetailPendingCount.textContent = pendingUsers.length;
                 renderBadgeUserList(badgeDetailGrantedList, grantedUsers, 'No granted users yet.');
@@ -612,6 +860,75 @@
         });
 
         updateBulkBadgeDeleteState();
+
+        if (badgeCourseSelect && requiredModulesInput) {
+            badgeCourseSelect.addEventListener('change', function () {
+                const selected = badgeCourseSelect.options[badgeCourseSelect.selectedIndex];
+                const required = selected ? selected.getAttribute('data-required') : '';
+                if (required) {
+                    requiredModulesInput.value = required;
+                }
+            });
+        }
+
+        if (useDefaultBadgeImageBtn) {
+            useDefaultBadgeImageBtn.addEventListener('click', async function () {
+                const defaultImageUrl = getSelectedCourseDefaultImageUrl();
+                const defaultStoragePath = getSelectedCourseDefaultImageStoragePath();
+                const courseId = badgeCourseSelect ? badgeCourseSelect.value : '';
+                if (!courseId || !defaultStoragePath) {
+                    showInlineMessage('No Firebase default image is configured for the selected course.', 'warning');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`?action=default_badge_image&course_id=${encodeURIComponent(courseId)}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) {
+                        throw new Error(data.error || 'Could not load the default badge image.');
+                    }
+                    if (badgeImageUrlInput) {
+                        badgeImageUrlInput.value = data.signed_url || defaultImageUrl;
+                    }
+                    if (badgeImageStoragePathInput) {
+                        badgeImageStoragePathInput.value = data.storage_path || defaultStoragePath;
+                    }
+                    if (badgeImageSourceInput && !badgeImageSourceInput.value) {
+                        badgeImageSourceInput.value = data.storage_path || defaultStoragePath;
+                    }
+                } catch (error) {
+                    showInlineMessage(error.message || 'Could not load the default badge image.', 'danger');
+                }
+            });
+        }
+
+        if (badgeImageUrlInput) {
+            badgeImageUrlInput.addEventListener('input', function () {
+                if (badgeImageStoragePathInput) {
+                    badgeImageStoragePathInput.value = '';
+                }
+            });
+        }
+
+        if (badgeFormResetBtn) {
+            badgeFormResetBtn.addEventListener('click', function () {
+                resetBadgeForm();
+            });
+        }
+
+        if (editBadgeBtn) {
+            editBadgeBtn.addEventListener('click', function () {
+                if (!activeBadgeDetails) return;
+                populateBadgeForm(activeBadgeDetails);
+                if (badgeDetailModal) {
+                    badgeDetailModal.hide();
+                }
+            });
+        }
 
         badgeCards.forEach((card) => {
             card.addEventListener('click', function () {

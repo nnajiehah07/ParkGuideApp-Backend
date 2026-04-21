@@ -211,13 +211,14 @@ class BadgeAdmin(DashboardStatsChangeListMixin, admin.ModelAdmin):
         'id',
         'name',
         'course',
+        'badge_image_preview',
         'required_completed_modules',
         'approval_mode',
         'is_active',
         'award_snapshot',
     )
     list_filter = ('is_active', 'course')
-    search_fields = ('name', 'description', 'course__title')
+    search_fields = ('name', 'description', 'skills_awarded', 'lesson_highlights', 'course__title')
     ordering = ('course', 'required_completed_modules', 'name')
     autocomplete_fields = ('course',)
     dashboard_title = 'Badge Rules'
@@ -236,6 +237,16 @@ class BadgeAdmin(DashboardStatsChangeListMixin, admin.ModelAdmin):
             'green' if obj.auto_approve_when_eligible else 'gold',
         )
     approval_mode.short_description = 'Approval mode'
+
+    def badge_image_preview(self, obj):
+        if not obj.badge_image_url:
+            return format_html('<span class="admin-subtle">No image</span>')
+        return format_html(
+            '<img src="{}" alt="{}" style="width:48px;height:48px;object-fit:cover;border-radius:12px;border:1px solid rgba(15,23,42,.1);" />',
+            obj.badge_image_url,
+            obj.name,
+        )
+    badge_image_preview.short_description = 'Artwork'
 
     def award_snapshot(self, obj):
         total = obj.user_badges.count()

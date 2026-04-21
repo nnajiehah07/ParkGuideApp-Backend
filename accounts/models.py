@@ -24,6 +24,7 @@ class CustomUser(AbstractUser):
         default='',
         validators=[malaysia_phone_validator],
     )
+    profile_image_path = models.CharField(max_length=500, blank=True, default='')
     birthdate = models.DateField(null=True, blank=True)
     must_change_password = models.BooleanField(default=False)
     groups = models.ManyToManyField(

@@ -2045,7 +2045,9 @@ def dashboard_badges(request):
     """Badge management, tracking, and admin approval page"""
     from user_progress.services import (
         revoke_badge, re_grant_badge, grant_course_completion_badge,
-        check_and_grant_achievement_badges, get_badge_leaderboard
+        check_and_grant_achievement_badges, create_or_update_course_badge,
+        get_badge_leaderboard, get_course_badge_requirement_count,
+        get_badge_image_access_url, get_default_badge_blob_path,
     )
     
     # Handle AJAX badge details request
@@ -2081,9 +2083,33 @@ def dashboard_badges(request):
                     'id': badge.id,
                     'name': badge.name,
                     'description': badge.description or '',
+                    'raw_badge_image_url': badge.badge_image_url or '',
+                    'badge_image_url': get_badge_image_access_url(badge.badge_image_url),
+                    'badge_image_source': badge.badge_image_source or '',
+                    'skills_awarded': badge.skills_awarded or [],
+                    'lesson_highlights': badge.lesson_highlights or [],
+                    'course_id': badge.course_id or '',
+                    'required_completed_modules': badge.required_completed_modules,
+                    'course_title': badge.course.title.get('en', 'Course') if badge.course else '',
                     'is_major': badge.is_major_badge,
                     'users': badge_data,
                 }
+            })
+
+        elif action == 'default_badge_image':
+            course_id = (request.GET.get('course_id') or '').strip()
+            course = Course.objects.filter(id=course_id).first()
+            if not course:
+                return JsonResponse({'ok': False, 'error': 'Course not found.'}, status=404)
+
+            storage_path = get_default_badge_blob_path(course)
+            if not storage_path:
+                return JsonResponse({'ok': False, 'error': 'No default Firebase badge image configured for this course.'}, status=404)
+
+            return JsonResponse({
+                'ok': True,
+                'storage_path': storage_path,
+                'signed_url': get_badge_image_access_url(storage_path),
             })
         
         elif action == 'user_badges':
@@ -2100,6 +2126,7 @@ def dashboard_badges(request):
                     'id': user_badge.id,
                     'badge_id': user_badge.badge.id,
                     'name': user_badge.badge.name,
+                    'badge_image_url': get_badge_image_access_url(user_badge.badge.badge_image_url),
                     'status': user_badge.status,
                     'is_awarded': user_badge.is_awarded,
                     'is_major': user_badge.badge.is_major_badge,
@@ -2121,6 +2148,89 @@ def dashboard_badges(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        if action == 'sync_course_badges':
+            created_or_updated = 0
+            for course in Course.objects.all().order_by('code'):
+                create_or_update_course_badge(course)
+                created_or_updated += 1
+            messages.success(request, f'Generated or refreshed {created_or_updated} course badge(s).')
+            return redirect('dashboard:badges')
+
+        if action == 'save_badge':
+            badge_id = (request.POST.get('badge_id') or '').strip()
+            name = (request.POST.get('name') or '').strip()
+            description = (request.POST.get('description') or '').strip()
+            course_id = (request.POST.get('course_id') or '').strip()
+            badge_image_url = (request.POST.get('badge_image_url') or '').strip()
+            badge_image_storage_path = (request.POST.get('badge_image_storage_path') or '').strip()
+            badge_image_source = (request.POST.get('badge_image_source') or '').strip()
+            skills_awarded = [line.strip() for line in (request.POST.get('skills_awarded') or '').splitlines() if line.strip()]
+            lesson_highlights = [line.strip() for line in (request.POST.get('lesson_highlights') or '').splitlines() if line.strip()]
+
+            if not name:
+                messages.error(request, 'Badge name is required.')
+                return redirect('dashboard:badges')
+
+            course = Course.objects.filter(id=course_id).first() if course_id else None
+            required_completed_modules = request.POST.get('required_completed_modules')
+            try:
+                required_completed_modules = int(required_completed_modules or 1)
+            except (TypeError, ValueError):
+                messages.error(request, 'Required completed modules must be a number.')
+                return redirect('dashboard:badges')
+
+            if course and not skills_awarded:
+                skills_awarded = list(course.chapters.order_by('order').values_list('title__en', flat=True))
+            if course and not lesson_highlights:
+                lesson_highlights = list(course.chapters.order_by('order', 'lessons__order').values_list('lessons__title__en', flat=True))
+            if course and not description:
+                description = (course.description or {}).get('en', '').strip()
+            final_badge_image_value = badge_image_storage_path or badge_image_url
+            if course and not final_badge_image_value:
+                final_badge_image_value = get_default_badge_blob_path(course) or course.thumbnail or ''
+            if final_badge_image_value and not badge_image_source:
+                badge_image_source = final_badge_image_value
+            if course and required_completed_modules == 1:
+                required_completed_modules = get_course_badge_requirement_count(course)
+
+            badge = Badge.objects.filter(id=badge_id).first() if badge_id else Badge()
+            badge.name = name
+            badge.description = description
+            badge.badge_image_url = final_badge_image_value
+            badge.badge_image_source = badge_image_source
+            badge.skills_awarded = skills_awarded
+            badge.lesson_highlights = lesson_highlights
+            badge.course = course
+            badge.required_completed_modules = max(required_completed_modules, 1)
+            badge.required_badges_count = 0
+            badge.is_major_badge = False
+            badge.is_active = True
+            badge.auto_approve_when_eligible = False
+            badge.save()
+
+            messages.success(request, f'Badge {"updated" if badge_id else "created"}: {badge.name}')
+            return redirect('dashboard:badges')
+
+        if action == 'approve_all_badges':
+            pending_badges_qs = UserBadge.objects.filter(status='pending').select_related('badge', 'user')
+            approved_total = 0
+            for user_badge in pending_badges_qs:
+                user_badge.status = 'granted'
+                user_badge.is_awarded = True
+                user_badge.awarded_by = request.user
+                user_badge.revoked_at = None
+                user_badge.revoked_by = None
+                user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by', 'revoked_at', 'revoked_by'])
+                from user_progress.services import notify_badge_granted_to_user
+                notify_badge_granted_to_user(user_badge, admin_user=request.user)
+                approved_total += 1
+
+            if approved_total:
+                messages.success(request, f'Approved {approved_total} pending badge request(s).')
+            else:
+                messages.info(request, 'No pending badge requests to approve.')
+            return redirect('dashboard:badges')
 
         if action == 'delete_badge':
             badge_id = (request.POST.get('badge_id') or '').strip()
@@ -2224,14 +2334,30 @@ def dashboard_badges(request):
                 user_badge.status = 'granted'
                 user_badge.is_awarded = True
                 user_badge.awarded_by = request.user
-                user_badge.save()
+                user_badge.revoked_at = None
+                user_badge.revoked_by = None
+                user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by', 'revoked_at', 'revoked_by'])
                 
                 # Notify user about approval
                 from user_progress.services import notify_badge_granted_to_user
                 notify_badge_granted_to_user(user_badge, admin_user=request.user)
                 
                 if is_ajax:
-                    return JsonResponse({'ok': True, 'message': f'Badge approved: {user_badge.badge.name}'})
+                    return JsonResponse({
+                        'ok': True,
+                        'message': f'Badge approved: {user_badge.badge.name}',
+                        'pending_total': UserBadge.objects.filter(status='pending').count(),
+                        'badge_id': user_badge.badge.id,
+                        'badge_granted': UserBadge.objects.filter(
+                            badge=user_badge.badge,
+                            status='granted',
+                            is_awarded=True,
+                        ).count(),
+                        'badge_pending': UserBadge.objects.filter(
+                            badge=user_badge.badge,
+                            status='pending',
+                        ).count(),
+                    })
                 
                 messages.success(request, f'✓ Badge approved: {user_badge.badge.name} | Notification sent to {user_badge.user.email}')
                 return redirect('dashboard:badges')
@@ -2256,7 +2382,8 @@ def dashboard_badges(request):
                 # Reject the badge
                 user_badge.status = 'rejected'
                 user_badge.is_awarded = False
-                user_badge.save()
+                user_badge.awarded_by = None
+                user_badge.save(update_fields=['status', 'is_awarded', 'awarded_by'])
                 
                 # Optional: Notify user about rejection
                 from notifications.services import create_notification_for_user
@@ -2271,7 +2398,21 @@ def dashboard_badges(request):
                 )
                 
                 if is_ajax:
-                    return JsonResponse({'ok': True, 'message': f'Badge rejected: {user_badge.badge.name}'})
+                    return JsonResponse({
+                        'ok': True,
+                        'message': f'Badge rejected: {user_badge.badge.name}',
+                        'pending_total': UserBadge.objects.filter(status='pending').count(),
+                        'badge_id': user_badge.badge.id,
+                        'badge_granted': UserBadge.objects.filter(
+                            badge=user_badge.badge,
+                            status='granted',
+                            is_awarded=True,
+                        ).count(),
+                        'badge_pending': UserBadge.objects.filter(
+                            badge=user_badge.badge,
+                            status='pending',
+                        ).count(),
+                    })
                 
                 messages.success(request, f'✓ Badge rejected: {user_badge.badge.name}')
                 return redirect('dashboard:badges')
@@ -2283,10 +2424,10 @@ def dashboard_badges(request):
 
     # Get all badges with stats
     badges = Badge.objects.annotate(
-        total_granted=Count('user_badges', filter=Q(user_badges__status='granted', user_badges__is_awarded=True)),
+        granted_badges=Count('user_badges', filter=Q(user_badges__status='granted', user_badges__is_awarded=True)),
         total_revoked=Count('user_badges', filter=Q(user_badges__revoked_at__isnull=False)),
         pending_approvals=Count('user_badges', filter=Q(user_badges__status='pending')),
-    ).order_by('-total_granted')
+    ).order_by('-granted_badges', 'name')
     
     # Separate course badges and achievement badges
     course_badges = badges.filter(is_major_badge=False).filter(course__isnull=False)
@@ -2321,7 +2462,16 @@ def dashboard_badges(request):
     except:
         page_obj = paginator.page(1)
         paginated_badges = page_obj.object_list
+
+    for badge in paginated_badges:
+        badge.display_badge_image_url = get_badge_image_access_url(badge.badge_image_url)
     
+    course_options = list(Course.objects.all().order_by('code').prefetch_related('modules', 'chapters'))
+    for course in course_options:
+        course.badge_requirement = get_course_badge_requirement_count(course)
+        course.badge_default_image_storage_path = get_default_badge_blob_path(course)
+        course.badge_default_image_url = get_badge_image_access_url(course.badge_default_image_storage_path)
+
     context = {
         'badges': paginated_badges,
         'achievement_badges': achievement_badges,
@@ -2331,7 +2481,7 @@ def dashboard_badges(request):
         'stats': stats,
         'current_page': page_obj.number,
         'total_pages': total_pages,
-        'courses': Course.objects.all().order_by('code'),
+        'courses': course_options,
     }
     
     return render(request, 'dashboard/badges.html', context)

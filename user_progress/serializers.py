@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
 from .models import Badge, UserBadge
+from .services import get_badge_image_access_url
 
 
 class BadgeStatusSerializer(serializers.ModelSerializer):
+    badge_image_url = serializers.SerializerMethodField()
     course_id = serializers.SerializerMethodField()  # ✅ Fixed: handles null course
     course_title = serializers.SerializerMethodField()
     earned = serializers.SerializerMethodField()
@@ -21,6 +23,10 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'description',
+            'badge_image_url',
+            'badge_image_source',
+            'skills_awarded',
+            'lesson_highlights',
             'course_id',
             'course_title',
             'required_completed_modules',
@@ -40,6 +46,9 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
         if not obj.course:
             return None
         return obj.course.title.get('en', 'Course')
+
+    def get_badge_image_url(self, obj):
+        return get_badge_image_access_url(obj.badge_image_url)
 
     def get_course_id(self, obj):  # ✅ Added: safely handles null course
         if not obj.course:
@@ -83,6 +92,10 @@ class BadgeStatusSerializer(serializers.ModelSerializer):
 class UserBadgeSerializer(serializers.ModelSerializer):
     badge_name = serializers.CharField(source='badge.name', read_only=True)
     badge_description = serializers.CharField(source='badge.description', read_only=True)
+    badge_image_url = serializers.SerializerMethodField()
+    badge_image_source = serializers.CharField(source='badge.badge_image_source', read_only=True)
+    badge_skills_awarded = serializers.JSONField(source='badge.skills_awarded', read_only=True)
+    badge_lesson_highlights = serializers.JSONField(source='badge.lesson_highlights', read_only=True)
     badge_required_completed_modules = serializers.IntegerField(source='badge.required_completed_modules', read_only=True)
     badge_required_badges_count = serializers.IntegerField(source='badge.required_badges_count', read_only=True)
     badge_is_major_badge = serializers.BooleanField(source='badge.is_major_badge', read_only=True)
@@ -96,6 +109,10 @@ class UserBadgeSerializer(serializers.ModelSerializer):
             'badge',
             'badge_name',
             'badge_description',
+            'badge_image_url',
+            'badge_image_source',
+            'badge_skills_awarded',
+            'badge_lesson_highlights',
             'badge_required_completed_modules',
             'badge_required_badges_count',
             'badge_is_major_badge',
@@ -111,6 +128,9 @@ class UserBadgeSerializer(serializers.ModelSerializer):
         if not obj.badge.course:
             return None
         return obj.badge.course.id
+
+    def get_badge_image_url(self, obj):
+        return get_badge_image_access_url(obj.badge.badge_image_url)
 
     def get_badge_course_title(self, obj):
         if not obj.badge.course:
