@@ -1,0 +1,110 @@
+2026-04-21T07:32:31.3683293Z Unexpected passkey registration persistence error for user_id=11 request_id=d88bef61b8c24af0aaa9d0ca5f0b35cc
+2026-04-21T07:32:31.3683319Z Traceback (most recent call last):
+2026-04-21T07:32:31.3683338Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/query.py", line 987, in get_or_create
+2026-04-21T07:32:31.3683476Z     return self.get(**kwargs), False
+2026-04-21T07:32:31.3683544Z            ~~~~~~~~^^^^^^^^^^
+2026-04-21T07:32:31.3683564Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/query.py", line 639, in get
+2026-04-21T07:32:31.3683581Z     raise self.model.DoesNotExist(
+2026-04-21T07:32:31.3683598Z         "%s matching query does not exist." % self.model._meta.object_name
+2026-04-21T07:32:31.3683612Z     )
+2026-04-21T07:32:31.368363Z accounts.models.PasskeyCredential.DoesNotExist: PasskeyCredential matching query does not exist.
+2026-04-21T07:32:31.3683644Z
+2026-04-21T07:32:31.3683679Z During handling of the above exception, another exception occurred:
+2026-04-21T07:32:31.3683694Z
+2026-04-21T07:32:31.3683709Z Traceback (most recent call last):
+2026-04-21T07:32:31.3683748Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/backends/utils.py", line 105, in _execute
+2026-04-21T07:32:31.3683765Z     return self.cursor.execute(sql, params)
+2026-04-21T07:32:31.368378Z            ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-04-21T07:32:31.3683798Z psycopg2.errors.StringDataRightTruncation: value too long for type character varying(32)
+2026-04-21T07:32:31.3683811Z
+2026-04-21T07:32:31.3683825Z
+2026-04-21T07:32:31.3683842Z The above exception was the direct cause of the following exception:
+2026-04-21T07:32:31.3683856Z
+2026-04-21T07:32:31.3683888Z Traceback (most recent call last):
+2026-04-21T07:32:31.3683905Z   File "/tmp/8de9f77b137be48/accounts/views.py", line 548, in post
+2026-04-21T07:32:31.3683921Z     PasskeyCredential.objects.update_or_create(
+2026-04-21T07:32:31.3683936Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-04-21T07:32:31.3683951Z         credential_id=credential_id,
+2026-04-21T07:32:31.3683966Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3683982Z     ...<8 lines>...
+2026-04-21T07:32:31.3683997Z         },
+2026-04-21T07:32:31.3684015Z         ^^
+2026-04-21T07:32:31.368403Z     )
+2026-04-21T07:32:31.3684058Z     ^
+2026-04-21T07:32:31.3684078Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/manager.py", line 87, in manager_method
+2026-04-21T07:32:31.3684095Z     return getattr(self.get_queryset(), name)(*args, **kwargs)
+2026-04-21T07:32:31.3684111Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3684131Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/query.py", line 1029, in update_or_create
+2026-04-21T07:32:31.3684148Z     obj, created = self.select_for_update().get_or_create(
+2026-04-21T07:32:31.3684164Z                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-04-21T07:32:31.3684179Z         create_defaults, **kwargs
+2026-04-21T07:32:31.3684194Z         ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3684208Z     )
+2026-04-21T07:32:31.3684236Z     ^
+2026-04-21T07:32:31.3684256Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/query.py", line 994, in get_or_create
+2026-04-21T07:32:31.3684272Z     return self.create(**params), True
+2026-04-21T07:32:31.3684287Z            ~~~~~~~~~~~^^^^^^^^^^
+2026-04-21T07:32:31.3684306Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/query.py", line 669, in create
+2026-04-21T07:32:31.3684322Z     obj.save(force_insert=True, using=self.db)
+2026-04-21T07:32:31.3684337Z     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3684355Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/base.py", line 874, in save
+2026-04-21T07:32:31.3684369Z     self.save_base(
+2026-04-21T07:32:31.3684383Z     ~~~~~~~~~~~~~~^
+2026-04-21T07:32:31.3684399Z         using=using,
+2026-04-21T07:32:31.3684426Z         ^^^^^^^^^^^^
+2026-04-21T07:32:31.3684442Z     ...<2 lines>...
+2026-04-21T07:32:31.368448Z         update_fields=update_fields,
+2026-04-21T07:32:31.3684495Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3684509Z     )
+2026-04-21T07:32:31.3684522Z     ^
+2026-04-21T07:32:31.368454Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/base.py", line 966, in save_base
+2026-04-21T07:32:31.3684556Z     updated = self._save_table(
+2026-04-21T07:32:31.3684571Z         raw,
+2026-04-21T07:32:31.3684603Z     ...<4 lines>...
+2026-04-21T07:32:31.3684619Z         update_fields,
+2026-04-21T07:32:31.3684632Z     )
+2026-04-21T07:32:31.3684651Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/base.py", line 1169, in _save_table
+2026-04-21T07:32:31.3684666Z     results = self._do_insert(
+2026-04-21T07:32:31.3684683Z         cls._base_manager, using, insert_fields, returning_fields, raw
+2026-04-21T07:32:31.3684697Z     )
+2026-04-21T07:32:31.3684716Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/base.py", line 1220, in _do_insert
+2026-04-21T07:32:31.3684731Z     return manager._insert(
+2026-04-21T07:32:31.3684745Z            ~~~~~~~~~~~~~~~^
+2026-04-21T07:32:31.368476Z         [self],
+2026-04-21T07:32:31.3684787Z         ^^^^^^^
+2026-04-21T07:32:31.3684803Z     ...<3 lines>...
+2026-04-21T07:32:31.3684817Z         raw=raw,
+2026-04-21T07:32:31.3684832Z         ^^^^^^^^
+2026-04-21T07:32:31.3684845Z     )
+2026-04-21T07:32:31.3684859Z     ^
+2026-04-21T07:32:31.3684878Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/manager.py", line 87, in manager_method
+2026-04-21T07:32:31.3684895Z     return getattr(self.get_queryset(), name)(*args, **kwargs)
+2026-04-21T07:32:31.3684911Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3684929Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/query.py", line 1918, in _insert
+2026-04-21T07:32:31.3684946Z     return query.get_compiler(using=using).execute_sql(returning_fields)
+2026-04-21T07:32:31.3684976Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3684996Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/models/sql/compiler.py", line 1925, in execute_sql
+2026-04-21T07:32:31.3685012Z     cursor.execute(sql, params)
+2026-04-21T07:32:31.3685104Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-04-21T07:32:31.3685125Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/backends/utils.py", line 79, in execute
+2026-04-21T07:32:31.3685141Z     return self._execute_with_wrappers(
+2026-04-21T07:32:31.3685156Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-04-21T07:32:31.3685173Z         sql, params, many=False, executor=self._execute
+2026-04-21T07:32:31.368519Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3685204Z     )
+2026-04-21T07:32:31.3685217Z     ^
+2026-04-21T07:32:31.3685252Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+2026-04-21T07:32:31.3685268Z     return executor(sql, params, many, context)
+2026-04-21T07:32:31.3685286Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/backends/utils.py", line 100, in _execute
+2026-04-21T07:32:31.3685301Z     with self.db.wrap_database_errors:
+2026-04-21T07:32:31.3685317Z          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-21T07:32:31.3685336Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/utils.py", line 94, in __exit__
+2026-04-21T07:32:31.3685353Z     raise dj_exc_value.with_traceback(traceback) from exc_value
+2026-04-21T07:32:31.3685372Z   File "/tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/django/db/backends/utils.py", line 105, in _execute
+2026-04-21T07:32:31.3685387Z     return self.cursor.execute(sql, params)
+2026-04-21T07:32:31.3685403Z            ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-04-21T07:32:31.3685435Z django.db.utils.DataError: value too long for type character varying(32)
+2026-04-21T07:32:31.3685449Z
+2026-04-21T07:32:31.4202839Z /tmp/8de9f77b137be48/antenv/lib/python3.14/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+2026-04-21T07:32:31.4203208Z   return self._jws.encode(
+2026-04-21T07:32:31.4301588Z 169.254.130.1 - - [21/Apr/2026:07:32:31 +0000] "POST /api/accounts/token/refresh/ HTTP/1.1" 200 245 "-" "okhttp/4.9.2"
