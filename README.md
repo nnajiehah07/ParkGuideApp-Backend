@@ -18,146 +18,15 @@ Django REST backend for the Park Guide App training platform. This service handl
 - Secure file upload, download, and temporary signed URLs using Firebase Storage
 - Django admin for courses, badges, notifications, users, and files
 
-## Prerequisites
-- Python 3.10+
-- Project `.env` file from @MiyukiVigil
-- Secrets files/credentials from @MiyukiVigil
-
-Current configuration is environment-driven (see `park_guide/settings.py`):
-- `DATABASE_URL` (Neon database URL)
-- `DB_SSL_REQUIRE` (optional)
-- `DB_CONN_MAX_AGE` (optional)
-- `DB_CONN_HEALTH_CHECKS` (optional)
-
-Email configuration (SMTP) is also environment-driven:
-- `EMAIL_BACKEND` (default: `django.core.mail.backends.smtp.EmailBackend`)
-- `EMAIL_HOST`
-- `EMAIL_PORT`
-- `EMAIL_HOST_USER`
-- `EMAIL_HOST_PASSWORD`
-- `EMAIL_USE_TLS`
-- `EMAIL_USE_SSL`
-- `DEFAULT_FROM_EMAIL`
-
-Passkey configuration is environment-driven:
-- `PASSKEY_RP_ID`
-- `PASSKEY_RP_NAME`
-- `PASSKEY_ORIGIN`
-
-## Setup
-1. Create and activate a virtual environment:
-
-For Mac and Linux (Depnding on your terminal shell):
+## How to run?
 ```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-For Windows:
-```bash
-venv\Scripts\activate
-```
-
-2. Install backend dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-3. Add required environment/secrets files provided by @MiyukiVigil:
-
-- `.env`
-- Firebase service account JSON (under `secrets/`)
-- Any additional project secrets used by your environment
-
-Example SMTP block in `.env`:
-
-```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=your_email@gmail.com
-EMAIL_HOST_PASSWORD=your_app_password
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=False
-DEFAULT_FROM_EMAIL=your_email@gmail.com
-```
-
-Example passkey block in `.env`:
-
-```env
-PASSKEY_RP_ID=localhost
-PASSKEY_RP_NAME=Park Guide App
-PASSKEY_ORIGIN=http://localhost:3000
-```
-
-Provider notes:
-- Gmail: enable 2FA and create an App Password, then use that as `EMAIL_HOST_PASSWORD`.
-- Outlook/Office365: `EMAIL_HOST=smtp.office365.com`, `EMAIL_PORT=587`, `EMAIL_USE_TLS=True`.
-
-4. Run migrations:
-For first time setup
-```bash
-python manage.py load_training_courses 
-python manage.py makemigrations accounts courses
-python manage.py migrate
-
-```
-After that when there's changes
-```bash
-python manage.py makemigrations
-python manage.py migrate
-```
-
-5. Load the bundled training data.
-
-```bash
-python manage.py load_training_courses
-```
-
-6. Create an admin user.
-
-```bash
-python manage.py createsuperuser
-```
-
-7. Verify Firebase Storage access.
-
-```bash
-python manage.py bootstrap_private_bucket
-```
-
-8. Optionally seed demo badges.
-
-```bash
-python manage.py seed_demo_badges
-```
-
-9. Start the server.
-
-```bash
+python venv venv
 python manage.py runserver
 ```
 
-Default local URL:
-- `http://127.0.0.1:8000`
-
-If you are testing from a physical Android device through a local dev build:
-
-```bash
-adb reverse tcp:8000 tcp:8000
-```
-
-## Neon Database
-This backend now expects a Postgres connection string through `DATABASE_URL`, which makes Neon the easiest deployment target.
-
-Example format:
-
-```env
-DATABASE_URL=postgresql://username:password@ep-example.ap-southeast-1.aws.neon.tech/dbname?sslmode=require
-```
-
-If the database is brand new, run:
+## Environment
+This backend uses a shared online database and shared project services.
+Local setup, migration, and bootstrap steps are intentionally omitted from this README.
 
 ## Secure File Endpoints (Firebase Storage)
 - `GET /api/secure-files/files/` – list your uploaded files (admin sees all)
@@ -168,15 +37,6 @@ If the database is brand new, run:
 
 ## Firebase Storage
 Secure file uploads are stored in Firebase Storage.
-
-## Firebase Setup
-
-- Requires Firebase service account JSON file, request from @MiyukiVigil
-```bash
-python manage.py bootstrap_private_bucket
-```
-
-If configured correctly, the command confirms that the bucket is accessible.
 
 ## API Overview
 Base routes:
@@ -243,16 +103,6 @@ Notification send flow:
 2. Select it in the changelist.
 3. Run the action to send it to users.
 
-## Useful Commands
-```bash
-python manage.py migrate
-python manage.py load_training_courses
-python manage.py seed_demo_badges
-python manage.py bootstrap_private_bucket
-python manage.py createsuperuser
-python manage.py runserver
-```
-
 Available sections under Notifications:
 - Notification
 - User notification
@@ -261,9 +111,6 @@ Admin send flow:
 1. Create a Notification in Django admin.
 2. Select it from list view.
 3. Run action: **Send selected notifications to all users**.
-
-Demo badge setup command:
-- `python manage.py seed_demo_badges` (creates selectable badges from current training courses/module data)
 
 ## Notes
 - `ModuleProgress` and `CourseProgress` are the source of truth for learner progress.

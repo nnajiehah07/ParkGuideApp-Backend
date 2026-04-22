@@ -2194,7 +2194,22 @@ def dashboard_badges(request):
             if course and required_completed_modules == 1:
                 required_completed_modules = get_course_badge_requirement_count(course)
 
-            badge = Badge.objects.filter(id=badge_id).first() if badge_id else Badge()
+            badge = Badge.objects.filter(id=badge_id).first() if badge_id else None
+            badge_with_same_name = Badge.objects.filter(name=name).first()
+
+            if badge_id and not badge:
+                messages.error(request, 'Badge not found.')
+                return redirect('dashboard:badges')
+
+            if badge and badge_with_same_name and badge_with_same_name.id != badge.id:
+                messages.error(request, f'A badge named "{name}" already exists.')
+                return redirect('dashboard:badges')
+
+            # If the edit form loses its hidden badge_id, fall back to the existing
+            # unique badge row for that name instead of attempting a duplicate insert.
+            if not badge:
+                badge = badge_with_same_name or Badge()
+
             badge.name = name
             badge.description = description
             badge.badge_image_url = final_badge_image_value
@@ -2429,15 +2444,16 @@ def dashboard_badges(request):
         pending_approvals=Count('user_badges', filter=Q(user_badges__status='pending')),
     ).order_by('-granted_badges', 'name')
     
-    # Separate course badges and achievement badges
-    course_badges = badges.filter(is_major_badge=False).filter(course__isnull=False)
+    # Show all regular badges in the main grid, including older/general badges
+    # that exist without a linked course.
+    course_badges = badges.filter(is_major_badge=False)
     achievement_badges = badges.filter(is_major_badge=True)
     
     # Get badge stats
     all_user_badges = UserBadge.objects.all()
     stats = {
         'total_badges': Badge.objects.count(),
-        'course_badges': Badge.objects.filter(is_major_badge=False, course__isnull=False).count(),
+        'course_badges': Badge.objects.filter(is_major_badge=False).count(),
         'achievement_badges': Badge.objects.filter(is_major_badge=True).count(),
         'total_granted': all_user_badges.filter(status='granted', is_awarded=True).count(),
         'total_revoked': all_user_badges.filter(revoked_at__isnull=False).count(),
