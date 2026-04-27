@@ -91,6 +91,8 @@ REST_FRAMEWORK = {
         'anon': os.getenv('THROTTLE_ANON_RATE', '60/min'),
         'user': os.getenv('THROTTLE_USER_RATE', '120/min'),
         'login': os.getenv('THROTTLE_LOGIN_RATE', '5/min'),
+        'register': os.getenv('THROTTLE_REGISTER_RATE', '5/min'),
+        'password_reset': os.getenv('THROTTLE_PASSWORD_RESET_RATE', '5/min'),
     },
 }
 
