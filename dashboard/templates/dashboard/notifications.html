@@ -41,6 +41,41 @@
             width: 100%;
         }
     }
+
+    #sendNotificationToggleBtn i {
+        transition: transform 0.2s ease;
+    }
+
+    #sendNotificationToggleBtn[aria-expanded="true"] i {
+        transform: rotate(180deg);
+    }
+
+    .notification-selected-guide-badge {
+        display: inline-flex;
+        align-items: center;
+        max-width: 100%;
+        padding: 0.35rem 0.65rem;
+        border-radius: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--text-main);
+        background: rgba(45, 106, 79, 0.08);
+        border: 1px solid var(--border);
+        word-break: break-word;
+    }
+
+    [data-theme="dark"] .notification-selected-guide-badge {
+        color: #f8f9fa;
+        background: rgba(82, 183, 136, 0.16);
+        border-color: rgba(82, 183, 136, 0.35);
+    }
+
+    [data-theme="light"] .notification-selected-guide-badge {
+        color: #1b4332;
+        background: #f4f7f5;
+        border-color: #cfd8d3;
+    }
 </style>
 {% endblock %}
 {% block content %}
@@ -66,59 +101,72 @@
 </div>
 
 <div class="glass-card mb-4">
-    <h5 class="fw-bold mb-3">Send Notification</h5>
-    <form method="post" class="row g-3">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="create_notification">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <h5 class="fw-bold mb-0">Send Notification</h5>
+        <button
+            class="btn btn-sm btn-outline-primary rounded-pill px-3 d-inline-flex align-items-center gap-2"
+            type="button"
+            id="sendNotificationToggleBtn"
+            data-bs-toggle="collapse"
+            data-bs-target="#sendNotificationCollapse"
+            aria-expanded="false"
+            aria-controls="sendNotificationCollapse">
+            <i class="bi bi-chevron-down"></i>
+            <span>Expand / Collapse</span>
+        </button>
+    </div>
 
-        <div class="col-md-6">
-            <label class="form-label">Title</label>
-            <input type="text" name="title" class="form-control" required>
-        </div>
+    <div class="collapse mt-3" id="sendNotificationCollapse">
+        <form method="post" class="row g-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_notification">
 
-        <div class="col-md-3">
-            <label class="form-label">Audience</label>
-            <select name="audience_type" id="audienceTypeSelect" class="form-select" required>
-                <option value="admins">Admins</option>
-                <option value="all_guides" selected>All Guides</option>
-                <option value="selected_guides">Selected Guides</option>
-            </select>
-        </div>
+            <div class="col-md-6">
+                <label class="form-label">Title</label>
+                <input type="text" name="title" class="form-control" required>
+            </div>
 
-        <div class="col-md-3">
-            <label class="form-label">Response Type</label>
-            <select name="tracking_type" id="trackingTypeSelect" class="form-select" required>
-                <option value="admin_shared">Any admin can mark as read</option>
-                <option value="info_only" selected>No response needed</option>
-                <option value="user_read">Read confirmation</option>
-                <option value="user_ack">User acknowledgement required</option>
-            </select>
-        </div>
+            <div class="col-md-3">
+                <label class="form-label">Audience</label>
+                <select name="audience_type" id="audienceTypeSelect" class="form-select" required>
+                    <option value="admins">Admins</option>
+                    <option value="all_guides" selected>All Guides</option>
+                    <option value="selected_guides">Selected Guides</option>
+                </select>
+            </div>
 
-        <div class="col-12" id="selectedGuidesWrap" style="display: none;">
-            <label class="form-label">Selected Guides</label>
-            <select name="selected_users" class="form-select" multiple size="6">
-                {% for user in guide_users %}
-                    <option value="{{ user.id }}">{{ user.username }} ({{ user.email }})</option>
-                {% endfor %}
-            </select>
-            <div class="form-text">Hold Ctrl/Cmd to select more than one guide.</div>
-        </div>
+            <div class="col-md-3">
+                <label class="form-label">Response Type</label>
+                <select name="tracking_type" id="trackingTypeSelect" class="form-select" required>
+                    <option value="admin_shared">Any admin can mark as read</option>
+                    <option value="info_only" selected>No response needed</option>
+                    <option value="user_read">Read confirmation</option>
+                    <option value="user_ack">User acknowledgement required</option>
+                </select>
+            </div>
 
-        <div class="col-12">
-            <label class="form-label">Short Description (optional)</label>
-            <input type="text" name="description" class="form-control" maxlength="255">
-        </div>
+            <div class="col-12" id="selectedGuidesWrap" style="display: none;">
+                <label class="form-label">Selected Guides</label>
+                <select name="selected_users" class="form-select" multiple size="6">
+                    {% for user in guide_users %}
+                        <option value="{{ user.id }}">{{ user.username }} ({{ user.email }})</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Hold Ctrl/Cmd to select more than one guide.</div>
+            </div>
 
-        <div class="col-12">
-            <label class="form-label">Full Message</label>
-            <textarea name="full_text" class="form-control" rows="4" required></textarea>
-        </div>
+            <div class="col-12">
+                <label class="form-label">Full Message</label>
+                <textarea name="full_text" class="form-control" rows="4" required></textarea>
+            </div>
 
-        <div class="col-12 text-end">
-            <button type="submit" class="btn btn-primary rounded-pill px-4">Send Notification</button>
-        </div>
-    </form>
+            <div class="col-12 text-end">
+                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                    Send Notification
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="glass-card">
@@ -473,7 +521,7 @@
             if (recipientUsernames.trim() && audience.toLowerCase().includes('selected')) {
                 recipientUsernames.split(',').map(x => x.trim()).filter(Boolean).forEach((username) => {
                     const span = document.createElement('span');
-                    span.className = 'badge bg-body-tertiary border text-dark';
+                    span.className = 'notification-selected-guide-badge';
                     span.textContent = username;
                     selectedGuidesEl.appendChild(span);
                 });

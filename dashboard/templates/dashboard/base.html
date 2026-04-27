@@ -722,12 +722,19 @@
             flex: 0 0 8px;
         }
 
-        .notification-bell-badge {
-            min-width: 1.15rem;
-            height: 1.15rem;
-            padding: 0 0.32rem;
-            font-size: 0.65rem;
-            line-height: 1.15rem;
+        #admin-notification-badge.notification-bell-badge {  
+            min-width: 18px;  
+            height: 18px;  
+            padding: 0 6px;  
+            font-size: 10px;  
+            font-weight: 700;  
+            line-height: 1;  
+            display: inline-flex;  
+            align-items: center;  
+            justify-content: center;  
+            border-radius: 999px;  
+            box-sizing: border-box;  
+            white-space: nowrap;  
         }
 
         .notification-center-actions {
@@ -768,11 +775,8 @@
                 <a href="{% url 'dashboard:courses' %}" class="nav-link {% if request.resolver_match.url_name == 'courses' %}active{% endif %}">
                     <i class="bi bi-book"></i> Courses
                 </a>
-                <a href="{% url 'dashboard:enrollments' %}" class="nav-link {% if request.resolver_match.url_name == 'enrollments' %}active{% endif %}">
-                    <i class="bi bi-journal-check"></i> Enrollments
-                </a>
-                <a href="{% url 'dashboard:progress' %}" class="nav-link {% if request.resolver_match.url_name == 'progress' %}active{% endif %}">
-                    <i class="bi bi-bar-chart"></i> Progress
+                <a href="{% url 'dashboard:enrollments' %}" class="nav-link {% if request.resolver_match.url_name == 'enrollments' or request.resolver_match.url_name == 'progress' %}active{% endif %}">
+                    <i class="bi bi-journal-check"></i> Guide Progress
                 </a>
                 <a href="{% url 'dashboard:badges' %}" class="nav-link {% if request.resolver_match.url_name == 'badges' %}active{% endif %}">
                     <i class="bi bi-trophy"></i> Badges
@@ -811,9 +815,7 @@
                     <div class="dropdown">
                         <button class="theme-toggle-btn position-relative" type="button" id="admin-notification-toggle" data-bs-toggle="dropdown" data-bs-auto-close="false" aria-expanded="false" aria-label="Open notifications">
                             <i class="bi bi-bell"></i>
-                            <span id="admin-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-bell-badge" style="display: none;">
-                                0
-                            </span>
+                            <span id="admin-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-bell-badge" style="display: none;">0</span>
                         </button>
 
                         <div class="dropdown-menu dropdown-menu-end notification-center-menu" aria-labelledby="admin-notification-toggle">
@@ -1081,7 +1083,7 @@
                 if (!badgeEl) return;
                 if (unreadCount > 0) {
                     badgeEl.textContent = unreadCount > 99 ? '99+' : unreadCount;
-                    badgeEl.style.display = '';
+                    badgeEl.style.display = 'inline-flex';
                 } else {
                     badgeEl.style.display = 'none';
                 }

@@ -1,7 +1,7 @@
 {% extends "dashboard/base.html" %}
 
-{% block title %}Enrollments - Dashboard{% endblock %}
-{% block page_title %}<i class="bi bi-journal-check me-2"></i>Enrollment Management{% endblock %}
+{% block title %}Guide Progress - Dashboard{% endblock %}
+{% block page_title %}<i class="bi bi-journal-check me-2"></i>Park Guide Progress{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -264,6 +264,171 @@
             grid-template-columns: 1fr;
         }
     }
+
+    .guide-progress-tabs {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 0.6rem;
+        box-shadow: var(--shadow);
+    }
+
+    .guide-progress-tabs .nav-link {
+        border: 0;
+        border-radius: 14px;
+        color: var(--text-muted);
+        font-weight: 800;
+        padding: 0.75rem 1rem;
+    }
+
+    .guide-progress-tabs .nav-link.active {
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        color: #ffffff !important;
+        box-shadow: 0 10px 24px rgba(45, 106, 79, 0.22);
+    }
+
+    .guide-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .guide-summary-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1.25rem;
+        box-shadow: var(--shadow);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        cursor: pointer;
+    }
+
+    .guide-summary-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(82, 183, 136, 0.4);
+        box-shadow: 0 18px 36px rgba(45, 106, 79, 0.12);
+    }
+
+    .guide-summary-card:focus-visible {
+        outline: 2px solid var(--primary-light);
+        outline-offset: 4px;
+    }
+
+    .guide-summary-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .guide-summary-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: white;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        flex: 0 0 48px;
+    }
+
+    .guide-summary-name {
+        font-weight: 800;
+        color: var(--primary-light);
+    }
+
+    .guide-summary-email {
+        color: var(--text-muted);
+        font-size: 0.88rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 220px;
+    }
+
+    .guide-summary-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .guide-summary-stat-box {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0.85rem;
+        background: rgba(45, 106, 79, 0.05);
+        text-align: center;
+    }
+
+    [data-theme="dark"] .guide-summary-stat-box {
+        background: rgba(82, 183, 136, 0.08);
+    }
+
+    .guide-summary-stat-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 800;
+        margin-bottom: 0.25rem;
+    }
+
+    .guide-summary-stat-value {
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: var(--primary-light);
+    }
+
+    .guide-latest-course {
+        background: rgba(45, 106, 79, 0.05);
+        border: 1px solid rgba(45, 106, 79, 0.08);
+        border-radius: 14px;
+        padding: 1rem;
+    }
+
+    [data-theme="dark"] .guide-latest-course {
+        background: rgba(82, 183, 136, 0.08);
+        border-color: rgba(82, 183, 136, 0.14);
+    }
+
+    .guide-progress-modal-content {
+        background: var(--bg-card);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+    }
+
+    .guide-progress-modal-header,
+    .guide-progress-modal-footer {
+        border-color: var(--border);
+    }
+
+    .guide-progress-modal-message {
+        display: none;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+
+    .guide-progress-modal-message.show {
+        display: block;
+    }
+
+    .guide-progress-enrollment-item {
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+        background: rgba(45, 106, 79, 0.05);
+    }
+
+    [data-theme="dark"] .guide-progress-enrollment-item {
+        background: rgba(82, 183, 136, 0.08);
+    }
 </style>
 {% endblock %}
 
@@ -296,157 +461,372 @@
         </div>
     </div>
 
-    <div class="enrollment-filter-card mb-4">
-        <form method="get" class="row g-3">
-            <div class="col-lg-5">
-                <label class="form-label small fw-bold">Search</label>
-                <input type="text" name="search" class="form-control" value="{{ search_query }}" placeholder="Username, email, or course code">
-            </div>
-            <div class="col-lg-3">
-                <label class="form-label small fw-bold">Status</label>
-                <select name="status" class="form-select">
-                    <option value="">All statuses</option>
-                    {% for value, label in status_choices %}
-                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-lg-2">
-                <label class="form-label small fw-bold">Course</label>
-                <select name="course" class="form-select">
-                    <option value="">All courses</option>
-                    {% for course in course_options %}
-                        <option value="{{ course.id }}" {% if course_filter == course.id|stringformat:'s' %}selected{% endif %}>{{ course.code }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-lg-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search me-2"></i>Apply
-                </button>
-            </div>
-        </form>
-    </div>
+    <ul class="nav nav-pills guide-progress-tabs mb-4" id="guideProgressTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button
+                class="nav-link {% if active_tab != 'guides' %}active{% endif %}"
+                id="enrollment-records-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#enrollment-records-pane"
+                type="button"
+                role="tab"
+                aria-controls="enrollment-records-pane"
+                aria-selected="{% if active_tab != 'guides' %}true{% else %}false{% endif %}">
+                <i class="bi bi-journal-check me-2"></i>Enrollment Records
+            </button>
+        </li>
 
-    <div class="glass-card">
-        {% if enrollments %}
-            <div class="enrollment-grid">
-                {% for enrollment in enrollments %}
-                    <div class="enrollment-card">
-                        <button
-                            type="button"
-                            class="enrollment-card-button"
-                            data-bs-toggle="modal"
-                            data-bs-target="#enrollmentModal{{ enrollment.id }}"
-                        >
-                            <div class="enrollment-card-header">
-                                <div class="enrollment-user">
-                                    <div class="enrollment-avatar">
-                                        {{ enrollment.user.username|first|upper }}
-                                    </div>
-                                    <div>
-                                        <div class="fw-semibold">{{ enrollment.user.username }}</div>
-                                        <div class="enrollment-meta">{{ enrollment.user.email }}</div>
-                                    </div>
-                                </div>
-                                <span class="status-pill {{ enrollment.status }}">{{ enrollment.get_status_display }}</span>
-                            </div>
+        <li class="nav-item" role="presentation">
+            <button
+                class="nav-link {% if active_tab == 'guides' %}active{% endif %}"
+                id="guide-summary-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#guide-summary-pane"
+                type="button"
+                role="tab"
+                aria-controls="guide-summary-pane"
+                aria-selected="{% if active_tab == 'guides' %}true{% else %}false{% endif %}">
+                <i class="bi bi-people me-2"></i>Park Guide Summary
+            </button>
+        </li>
+    </ul>
 
-                            <div class="enrollment-course-panel">
-                                <div class="d-flex justify-content-between align-items-start gap-3">
-                                    <div>
-                                        <div class="fw-semibold">{{ enrollment.course.code }}</div>
-                                        <div class="enrollment-meta">{{ enrollment.course.title.en|default:"Untitled Course" }}</div>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="fw-semibold">{{ enrollment.progress_percentage|floatformat:0 }}%</div>
-                                        <div class="enrollment-meta">Progress</div>
-                                    </div>
-                                </div>
-                                <div class="enrollment-progress-bar mt-3">
-                                    <div class="enrollment-progress-fill" style="width: {{ enrollment.progress_percentage }}%;"></div>
-                                </div>
-                            </div>
+    <div class="tab-content" id="guideProgressTabContent">
+        <div class="tab-pane fade {% if active_tab != 'guides' %}show active{% endif %}" id="enrollment-records-pane" role="tabpanel" aria-labelledby="enrollment-records-tab" tabindex="0">
+            <div class="enrollment-filter-card mb-4">
+                <form method="get" class="row g-3">
+                    <div class="col-lg-5">
+                        <label class="form-label small fw-bold">Search</label>
+                        <input type="text" name="search" class="form-control" value="{{ search_query }}" placeholder="Username, email, or course code">
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-bold">Status</label>
+                        <select name="status" class="form-select">
+                            <option value="">All statuses</option>
+                            {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-lg-2">
+                        <label class="form-label small fw-bold">Course</label>
+                        <select name="course" class="form-select">
+                            <option value="">All courses</option>
+                            {% for course in course_options %}
+                                <option value="{{ course.id }}" {% if course_filter == course.id|stringformat:'s' %}selected{% endif %}>{{ course.code }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-lg-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-2"></i>Apply
+                        </button>
+                    </div>
+                </form>
+            </div>
 
-                            <div class="enrollment-detail-grid">
-                                <div class="enrollment-detail-box">
-                                    <div class="enrollment-detail-label">Chapters</div>
-                                    <div class="enrollment-detail-value">{{ enrollment.completed_chapters }}/{{ enrollment.total_chapters }}</div>
-                                </div>
-                                <div class="enrollment-detail-box">
-                                    <div class="enrollment-detail-label">Final Score</div>
-                                    <div class="enrollment-detail-value">
-                                        {% if enrollment.final_score is not None %}
-                                            {{ enrollment.final_score|floatformat:0 }}%
-                                        {% else %}
-                                            -
+            <div class="glass-card">
+                {% if enrollments %}
+                    <div class="enrollment-grid">
+                        {% for enrollment in enrollments %}
+                            <div class="enrollment-card">
+                                <button
+                                    type="button"
+                                    class="enrollment-card-button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#enrollmentModal{{ enrollment.id }}"
+                                >
+                                    <div class="enrollment-card-header">
+                                        <div class="enrollment-user">
+                                            <div class="enrollment-avatar">
+                                                {{ enrollment.user.username|first|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">{{ enrollment.user.username }}</div>
+                                                <div class="enrollment-meta">{{ enrollment.user.email }}</div>
+                                            </div>
+                                        </div>
+                                        <span class="status-pill {{ enrollment.status }}">{{ enrollment.get_status_display }}</span>
+                                    </div>
+
+                                    <div class="enrollment-course-panel">
+                                        <div class="d-flex justify-content-between align-items-start gap-3">
+                                            <div>
+                                                <div class="fw-semibold">{{ enrollment.course.code }}</div>
+                                                <div class="enrollment-meta">{{ enrollment.course.title.en|default:"Untitled Course" }}</div>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="fw-semibold">{{ enrollment.progress_percentage|floatformat:0 }}%</div>
+                                                <div class="enrollment-meta">Progress</div>
+                                            </div>
+                                        </div>
+                                        <div class="enrollment-progress-bar mt-3">
+                                            <div class="enrollment-progress-fill" style="width: {{ enrollment.progress_percentage }}%;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="enrollment-detail-grid">
+                                        <div class="enrollment-detail-box">
+                                            <div class="enrollment-detail-label">Chapters</div>
+                                            <div class="enrollment-detail-value">{{ enrollment.completed_chapters }}/{{ enrollment.total_chapters }}</div>
+                                        </div>
+                                        <div class="enrollment-detail-box">
+                                            <div class="enrollment-detail-label">Final Score</div>
+                                            <div class="enrollment-detail-value">
+                                                {% if enrollment.final_score is not None %}
+                                                    {{ enrollment.final_score|floatformat:0 }}%
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 enrollment-meta">
+                                        Enrolled {{ enrollment.enrollment_date|timesince }} ago
+                                        {% if enrollment.completed_date %}
+                                            <br>Completed {{ enrollment.completed_date|timesince }} ago
                                         {% endif %}
                                     </div>
+                                </button>
+
+                                <div class="enrollment-actions mt-3">
+                                    <form method="post" class="flex-grow-1">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
+                                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                                            {% for value, label in status_choices %}
+                                                <option value="{{ value }}" {% if enrollment.status == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                    <form method="post" onsubmit="return confirm('Reset progress for {{ enrollment.user.username }} in {{ enrollment.course.code }}?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="reset_progress">
+                                        <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    </form>
+                                    <form method="post" onsubmit="return confirm('Unenroll {{ enrollment.user.username }} from {{ enrollment.course.code }}?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="delete_enrollment">
+                                        <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-person-dash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">No enrollments match the current filters.</div>
+                {% endif %}
+
+                {% if page_obj.paginator.num_pages > 1 %}
+                    <nav class="mt-4" aria-label="Enrollments pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">Previous</a>
+                                </li>
+                            {% endif %}
+                            <li class="page-item active disabled">
+                                <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tab-pane fade {% if active_tab == 'guides' %}show active{% endif %}" id="guide-summary-pane" role="tabpanel" aria-labelledby="guide-summary-tab" tabindex="0">
+            <div class="row g-3 g-lg-4 mb-4">
+                <div class="col-md-3">
+                    <div class="enrollment-stat-card">
+                        <div class="enrollment-stat-label">Active Guides</div>
+                        <div class="enrollment-stat-value text-success">{{ guide_stats.active_guides }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="enrollment-stat-card">
+                        <div class="enrollment-stat-label">Completed Courses</div>
+                        <div class="enrollment-stat-value text-success">{{ guide_stats.completed_courses }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="enrollment-stat-card">
+                        <div class="enrollment-stat-label">In Progress</div>
+                        <div class="enrollment-stat-value text-info">{{ guide_stats.in_progress }}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="enrollment-stat-card">
+                        <div class="enrollment-stat-label">Avg Progress</div>
+                        <div class="enrollment-stat-value">{{ guide_stats.avg_progress }}%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="enrollment-filter-card mb-4">
+                <form method="get" class="row g-3">
+                    <input type="hidden" name="tab" value="guides">
+
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-bold">Search Park Guides</label>
+                        <input
+                            type="text"
+                            name="guide_search"
+                            class="form-control"
+                            placeholder="Guide name or email..."
+                            value="{{ guide_search_query }}">
+                    </div>
+
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-bold">Sort By</label>
+                        <select name="guide_sort" class="form-select">
+                            <option value="recent" {% if guide_sort_by == 'recent' %}selected{% endif %}>Recent Activity</option>
+                            <option value="alphabetical" {% if guide_sort_by == 'alphabetical' %}selected{% endif %}>Name A-Z</option>
+                            <option value="progress" {% if guide_sort_by == 'progress' %}selected{% endif %}>Highest Progress</option>
+                        </select>
+                    </div>
+
+                    <div class="col-lg-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-2"></i>Search
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {% if guide_progress %}
+                <div class="guide-summary-grid">
+                    {% for guide in guide_progress %}
+                        <div
+                            class="guide-summary-card"
+                            data-guide-id="{{ guide.user.id }}"
+                            data-guide-username="{{ guide.user.username|escapejs }}"
+                            role="button"
+                            tabindex="0">
+
+                            <div class="guide-summary-header">
+                                <div class="guide-summary-avatar">
+                                    {{ guide.user.first_name|first|default:guide.user.username|first|upper }}
+                                </div>
+
+                                <div class="min-width-0">
+                                    <div class="guide-summary-name">
+                                        {% if guide.user.get_full_name %}
+                                            {{ guide.user.get_full_name }}
+                                        {% else %}
+                                            {{ guide.user.username }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="guide-summary-email" title="{{ guide.user.email }}">
+                                        {{ guide.user.email }}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="mt-3 enrollment-meta">
-                                Enrolled {{ enrollment.enrollment_date|timesince }} ago
-                                {% if enrollment.completed_date %}
-                                    <br>Completed {{ enrollment.completed_date|timesince }} ago
-                                {% endif %}
+                            <div class="guide-summary-stats">
+                                <div class="guide-summary-stat-box">
+                                    <div class="guide-summary-stat-label">Courses</div>
+                                    <div class="guide-summary-stat-value">{{ guide.total_enrollments }}</div>
+                                </div>
+
+                                <div class="guide-summary-stat-box">
+                                    <div class="guide-summary-stat-label">Completed</div>
+                                    <div class="guide-summary-stat-value text-success">{{ guide.completed_count }}</div>
+                                </div>
+
+                                <div class="guide-summary-stat-box">
+                                    <div class="guide-summary-stat-label">In Progress</div>
+                                    <div class="guide-summary-stat-value text-info">{{ guide.in_progress_count }}</div>
+                                </div>
+
+                                <div class="guide-summary-stat-box">
+                                    <div class="guide-summary-stat-label">Avg Progress</div>
+                                    <div class="guide-summary-stat-value">{{ guide.avg_progress }}%</div>
+                                </div>
                             </div>
-                        </button>
 
-                        <div class="enrollment-actions mt-3">
-                            <form method="post" class="flex-grow-1">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="update_status">
-                                <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
-                                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                                    {% for value, label in status_choices %}
-                                        <option value="{{ value }}" {% if enrollment.status == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </form>
-                            <form method="post" onsubmit="return confirm('Reset progress for {{ enrollment.user.username }} in {{ enrollment.course.code }}?');">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="reset_progress">
-                                <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning">
-                                    <i class="bi bi-arrow-counterclockwise"></i>
-                                </button>
-                            </form>
-                            <form method="post" onsubmit="return confirm('Unenroll {{ enrollment.user.username }} from {{ enrollment.course.code }}?');">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="delete_enrollment">
-                                <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-person-dash"></i>
-                                </button>
-                            </form>
+                            {% if guide.latest_enrollment %}
+                                <div class="guide-latest-course">
+                                    <div class="fw-bold text-success small text-uppercase mb-1">
+                                        <i class="bi bi-bookmark me-1"></i>{{ guide.latest_enrollment.course.code }}
+                                    </div>
+
+                                    <div class="fw-semibold mb-2">
+                                        {{ guide.latest_enrollment.course.title.en|default:"Untitled Course" }}
+                                    </div>
+
+                                    <div class="enrollment-progress-bar">
+                                        <div class="enrollment-progress-fill" style="width: {{ guide.latest_enrollment.progress_percentage }}%;"></div>
+                                    </div>
+
+                                    <div class="text-end mt-1">
+                                        <small class="text-muted">
+                                            {{ guide.latest_enrollment.progress_percentage|floatformat:0 }}% progress
+                                        </small>
+                                    </div>
+
+                                    {% if guide.latest_activity %}
+                                        <div class="small text-muted mt-2">
+                                            <i class="bi bi-calendar-event"></i>
+                                            Last active: {{ guide.latest_activity|timesince }} ago
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="text-muted small">
+                                    No course enrollment records yet.
+                                </div>
+                            {% endif %}
                         </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="text-center py-5 text-muted">No enrollments match the current filters.</div>
-        {% endif %}
+                    {% endfor %}
+                </div>
 
-        {% if page_obj.paginator.num_pages > 1 %}
-            <nav class="mt-4" aria-label="Enrollments pagination">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">Previous</a>
-                        </li>
-                    {% endif %}
-                    <li class="page-item active disabled">
-                        <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-                    </li>
-                    {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">Next</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        {% endif %}
+                {% if guide_total_pages > 1 %}
+                    <nav class="mt-4" aria-label="Guide summary pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if guide_page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?tab=guides&guide_page={{ guide_page_obj.previous_page_number }}{% if guide_search_query %}&guide_search={{ guide_search_query }}{% endif %}{% if guide_sort_by %}&guide_sort={{ guide_sort_by }}{% endif %}">
+                                        Previous
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active disabled">
+                                <span class="page-link">Page {{ guide_current_page }} of {{ guide_total_pages }}</span>
+                            </li>
+
+                            {% if guide_page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?tab=guides&guide_page={{ guide_page_obj.next_page_number }}{% if guide_search_query %}&guide_search={{ guide_search_query }}{% endif %}{% if guide_sort_by %}&guide_sort={{ guide_sort_by }}{% endif %}">
+                                        Next
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="glass-card text-center py-5 text-muted">
+                    No park guides match the current filters.
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -551,4 +931,215 @@
         </div>
     </div>
 {% endfor %}
+<div class="modal fade" id="guideProgressModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content guide-progress-modal-content">
+            <div class="modal-header guide-progress-modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-person-check me-2"></i>Park Guide Progress Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div id="guideProgressModalMessage" class="alert guide-progress-modal-message" role="alert"></div>
+
+                <div id="guideProgressContent">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer guide-progress-modal-footer justify-content-between">
+                <div class="small text-muted">
+                    Use reset to clear learning progress while keeping the guide account.
+                </div>
+
+                <button type="button" class="btn btn-outline-danger" id="resetAllGuideProgressBtn">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Reset All Progress
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const guideProgressModalEl = document.getElementById('guideProgressModal');
+    if (!guideProgressModalEl) return;
+    const guideProgressModal = new bootstrap.Modal(guideProgressModalEl);
+    const guideProgressContentEl = document.getElementById('guideProgressContent');
+    const guideProgressMessageEl = document.getElementById('guideProgressModalMessage');
+    const resetAllGuideProgressBtn = document.getElementById('resetAllGuideProgressBtn');
+    const guideCards = document.querySelectorAll('.guide-summary-card[data-guide-id]');
+    let activeGuideId = null;
+    let activeGuideName = '';
+
+    function getCsrfToken() {
+        return '{{ csrf_token }}';
+    }
+
+    function setGuideModalMessage(message, tone = 'success') {
+        guideProgressMessageEl.className = `alert alert-${tone} guide-progress-modal-message show`;
+        guideProgressMessageEl.textContent = message;
+    }
+
+    function clearGuideModalMessage() {
+        guideProgressMessageEl.className = 'alert guide-progress-modal-message';
+        guideProgressMessageEl.textContent = '';
+    }
+
+    function loadGuideProgress(guideId, guideName, preserveMessage = false) {
+        activeGuideId = guideId;
+        activeGuideName = guideName || '';
+        if (!preserveMessage) {
+            clearGuideModalMessage();
+        }
+        guideProgressContentEl.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        fetch(`/api/guides/${guideId}/progress/`)
+            .then(response => response.json())
+            .then(data => {
+                let html = `
+                    <div class="mb-4 pb-3 border-bottom">
+                        <h6 class="fw-bold mb-2">${data.user.name || data.user.username}</h6>
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-envelope"></i> ${data.user.email}
+                            ${data.user.last_login ? `<br><i class="bi bi-clock"></i> Last login: ${new Date(data.user.last_login).toLocaleString()}` : ''}
+                        </p>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <div class="enrollment-detail-box text-center">
+                                <div class="enrollment-detail-value">${data.summary.completed}/${data.summary.total_courses}</div>
+                                <div class="enrollment-detail-label">Completed</div>
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <div class="enrollment-detail-box text-center">
+                                <div class="enrollment-detail-value">${data.summary.avg_progress}%</div>
+                                <div class="enrollment-detail-label">Average Progress</div>
+                            </div>
+                        </div>
+                    </div>
+                    <h6 class="fw-bold mb-3">Course Enrollments</h6>
+                `;
+                data.enrollments.forEach(item => {
+                    const enrollment = item.enrollment;
+                    const statusColor = enrollment.status === 'completed'
+                        ? 'success'
+                        : enrollment.status === 'in_progress'
+                            ? 'info'
+                            : 'secondary';
+
+                    html += `
+                        <div class="guide-progress-enrollment-item">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                                <div>
+                                    <strong>${enrollment.course_code}</strong>
+                                    <span class="badge bg-${statusColor} ms-2">
+                                        ${(enrollment.status_label || enrollment.status.replace('_', ' ')).toUpperCase()}
+                                    </span>
+                                </div>
+
+                                <div class="text-end d-flex align-items-center gap-2">
+                                    <strong>${enrollment.progress_percentage}%</strong>
+                                    <button
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="resetGuideProgress(${guideId}, ${enrollment.id}, '${enrollment.course_code}')">
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+
+                            <small class="d-block mb-2">${enrollment.course_title}</small>
+
+                            <div class="enrollment-progress-bar mb-2">
+                                <div class="enrollment-progress-fill" style="width: ${enrollment.progress_percentage}%;"></div>
+                            </div>
+
+                            <div class="small text-muted">
+                                <i class="bi bi-bookmark"></i>
+                                ${item.chapters.completed}/${item.chapters.total} chapters
+                                ${item.quiz_avg ? `<span class="ms-3"><i class="bi bi-pencil-square"></i> Quiz Avg: ${item.quiz_avg}%</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                guideProgressContentEl.innerHTML = html;
+            })
+            .catch(error => {
+                guideProgressContentEl.innerHTML = `
+                    <div class="alert alert-danger">
+                        Failed to load park guide progress.
+                    </div>
+                `;
+                console.error('Guide progress load error:', error);
+            });
+        guideProgressModal.show();
+    }
+
+    window.resetGuideProgress = function (guideId, enrollmentId = null, label = '') {
+        const targetLabel = label ? ` for ${label}` : '';
+        const confirmed = window.confirm(
+            `Reset progress${targetLabel}? This will clear quiz attempts, practice attempts, and tracked completion data.`
+        );
+        if (!confirmed) return;
+        clearGuideModalMessage();
+        fetch(`/api/guides/${guideId}/progress/reset/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify(enrollmentId ? { enrollment_id: enrollmentId } : {}),
+        })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.error || 'Failed to reset progress.');
+                }
+                return data;
+            })
+            .then(data => {
+                setGuideModalMessage(data.message, 'success');
+                loadGuideProgress(guideId, activeGuideName, true);
+            })
+            .catch(error => {
+                setGuideModalMessage(error.message, 'danger');
+                console.error('Guide progress reset error:', error);
+            });
+    };
+    if (resetAllGuideProgressBtn) {
+        resetAllGuideProgressBtn.addEventListener('click', function () {
+            if (!activeGuideId) return;
+            window.resetGuideProgress(activeGuideId, null, activeGuideName || 'this park guide');
+        });
+    }
+
+    guideCards.forEach(card => {
+        const openDetails = () => {
+            const guideId = card.dataset.guideId;
+            const guideName = card.dataset.guideUsername || '';
+            if (!guideId) return;
+            loadGuideProgress(guideId, guideName);
+        };
+        card.addEventListener('click', openDetails);
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openDetails();
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
