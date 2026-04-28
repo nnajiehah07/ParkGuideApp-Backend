@@ -1124,6 +1124,76 @@ def _reset_enrollment_progress(enrollment):
         'total_time_spent', 'updated_at'
     ])
 
+def build_guide_progress_context(request):
+    """
+    Builds the guide summary data used by the combined Guide Progress page.
+    """
+    guide_search_query = request.GET.get('guide_search', '').strip()
+    guide_sort_by = request.GET.get('guide_sort', 'recent')
+    guide_qs = get_guide_queryset().order_by('username')
+    if guide_search_query:
+        guide_qs = guide_qs.filter(Q(username__icontains=guide_search_query) | Q(email__icontains=guide_search_query) | Q(first_name__icontains=guide_search_query) | Q(last_name__icontains=guide_search_query))
+
+    guide_cards = []
+
+    for guide in guide_qs:
+        enrollments_qs = (CourseEnrollment.objects.filter(user=guide).select_related('course').order_by('-updated_at', '-enrollment_date'))
+
+        enrollments = list(enrollments_qs)
+        total_enrollments = len(enrollments)
+        completed_count = sum(1 for item in enrollments if item.status == 'completed')
+        in_progress_count = sum(1 for item in enrollments if item.status == 'in_progress')
+
+        if total_enrollments:
+            avg_progress = round(sum(float(item.progress_percentage or 0) for item in enrollments) / total_enrollments, 1)
+        else:
+            avg_progress = 0
+
+        latest_enrollment = enrollments[0] if enrollments else None
+        latest_activity = None
+
+        if latest_enrollment:
+            latest_activity = latest_enrollment.updated_at or latest_enrollment.enrollment_date
+
+        guide_cards.append({
+            'user': guide,
+            'total_enrollments': total_enrollments,
+            'completed_count': completed_count,
+            'in_progress_count': in_progress_count,
+            'avg_progress': avg_progress,
+            'latest_enrollment': latest_enrollment,
+            'latest_activity': latest_activity,
+        })
+
+    if guide_sort_by == 'alphabetical':
+        guide_cards.sort(key=lambda item: (item['user'].get_full_name() or item['user'].username or '').lower())
+    elif guide_sort_by == 'progress':
+        guide_cards.sort(key=lambda item: item['avg_progress'], reverse=True)
+    else:
+        guide_cards.sort(key=lambda item: item['latest_activity'] or item['user'].date_joined, reverse=True)
+
+    guide_paginator = Paginator(guide_cards, 9)
+    guide_page_number = request.GET.get('guide_page', 1)
+    guide_page_obj = guide_paginator.get_page(guide_page_number)
+
+    enrollment_qs = CourseEnrollment.objects.all()
+
+    guide_stats = {
+        'active_guides': get_guide_queryset().count(),
+        'completed_courses': enrollment_qs.filter(status='completed').count(),
+        'in_progress': enrollment_qs.filter(status='in_progress').count(),
+        'avg_progress': round(enrollment_qs.aggregate(avg=Avg('progress_percentage'))['avg'] or 0, 1),
+    }
+
+    return {
+        'guide_stats': guide_stats,
+        'guide_progress': guide_page_obj.object_list,
+        'guide_page_obj': guide_page_obj,
+        'guide_total_pages': guide_paginator.num_pages,
+        'guide_current_page': guide_page_obj.number,
+        'guide_search_query': guide_search_query,
+        'guide_sort_by': guide_sort_by,
+    }
 
 @login_required
 @user_passes_test(is_staff_or_admin)
@@ -1134,11 +1204,9 @@ def dashboard_enrollments(request):
         enrollment_id = request.POST.get('enrollment_id')
         next_url = request.POST.get('next') or reverse('dashboard:enrollments')
         enrollment = CourseEnrollment.objects.filter(id=enrollment_id).select_related('user', 'course').first()
-
         if not enrollment:
             messages.error(request, 'Enrollment not found.')
             return redirect(next_url)
-
         with transaction.atomic():
             if action == 'update_status':
                 new_status = request.POST.get('status')
@@ -1158,16 +1226,10 @@ def dashboard_enrollments(request):
                         enrollment.started_date = None
                         enrollment.completed_date = None
                     enrollment.save()
-                    messages.success(
-                        request,
-                        f'Updated {enrollment.user.username} in {enrollment.course.code} to {enrollment.get_status_display()}.'
-                    )
+                    messages.success(request, f'Updated {enrollment.user.username} in {enrollment.course.code} to {enrollment.get_status_display()}.')
             elif action == 'reset_progress':
                 _reset_enrollment_progress(enrollment)
-                messages.success(
-                    request,
-                    f'Reset progress for {enrollment.user.username} in {enrollment.course.code}.'
-                )
+                messages.success(request, f'Reset progress for {enrollment.user.username} in {enrollment.course.code}.')
             elif action == 'delete_enrollment':
                 course_code = enrollment.course.code
                 username = enrollment.user.username
@@ -1175,7 +1237,6 @@ def dashboard_enrollments(request):
                 messages.success(request, f'Removed enrollment for {username} from {course_code}.')
             else:
                 messages.error(request, 'Unknown enrollment action.')
-
         return redirect(next_url)
 
     enrollments = CourseEnrollment.objects.select_related('user', 'course').order_by('-updated_at')
@@ -1184,22 +1245,14 @@ def dashboard_enrollments(request):
     course_filter = request.GET.get('course', '').strip()
 
     if search_query:
-        enrollments = enrollments.filter(
-            Q(user__username__icontains=search_query) |
-            Q(user__email__icontains=search_query) |
-            Q(course__code__icontains=search_query) |
-            Q(course__title__en__icontains=search_query)
-        )
-
+        enrollments = enrollments.filter(Q(user__username__icontains=search_query) | Q(user__email__icontains=search_query) | Q(course__code__icontains=search_query) | Q(course__title__en__icontains=search_query))
     if status_filter:
         enrollments = enrollments.filter(status=status_filter)
-
     if course_filter:
         enrollments = enrollments.filter(course_id=course_filter)
 
     paginator = Paginator(enrollments, 20)
     page_obj = paginator.get_page(request.GET.get('page', 1))
-
     stats_qs = CourseEnrollment.objects.all()
     stats = {
         'total': stats_qs.count(),
@@ -1208,7 +1261,6 @@ def dashboard_enrollments(request):
         'enrolled': stats_qs.filter(status='enrolled').count(),
         'avg_progress': round(stats_qs.aggregate(avg=Avg('progress_percentage'))['avg'] or 0, 1),
     }
-
     context = {
         'page_obj': page_obj,
         'enrollments': page_obj.object_list,
@@ -1219,6 +1271,14 @@ def dashboard_enrollments(request):
         'course_options': Course.objects.order_by('code'),
         'stats': stats,
     }
+    active_tab = request.GET.get('tab', '').strip()
+    if not active_tab:
+        if request.GET.get('guide_search') or request.GET.get('guide_sort') or request.GET.get('guide_page'):
+            active_tab = 'guides'
+        else:
+            active_tab = 'enrollments'
+    context['active_tab'] = active_tab
+    context.update(build_guide_progress_context(request))
     return render(request, 'dashboard/enrollments.html', context)
 
 @login_required
@@ -1926,7 +1986,8 @@ def dashboard_student_progress(request, user_id):
                 'id': enrollment.id,
                 'course_code': enrollment.course.code,
                 'course_title': get_title_text(enrollment.course.title, 'en', 'Untitled'),
-                'status': enrollment.get_status_display(),
+                'status': enrollment.status,
+                'status_label': enrollment.get_status_display(),
                 'progress_percentage': enrollment.progress_percentage,
                 'enrollment_date': enrollment.enrollment_date.isoformat() if enrollment.enrollment_date else None,
                 'completed_date': enrollment.completed_date.isoformat() if enrollment.completed_date else None,

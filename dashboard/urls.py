@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from django.contrib.auth.views import LoginView, LogoutView
 from . import views
 
@@ -38,9 +39,14 @@ urlpatterns = [
     path('api/exercises/<int:exercise_id>/', views.api_exercise_save, name='api_exercise_update'),
     path('api/exercises/<int:exercise_id>/delete/', views.api_exercise_delete, name='api_exercise_delete'),
     
-    path('dashboard/progress/', views.dashboard_progress, name='progress'),
+    path('dashboard/progress/', RedirectView.as_view(pattern_name='dashboard:enrollments', permanent=False), name='progress'),
+    path('api/guides/<int:user_id>/progress/', views.dashboard_student_progress, name='guide_progress'),
+    path('api/guides/<int:user_id>/progress/reset/', views.dashboard_reset_student_progress, name='guide_progress_reset'),
+    
+    # kept for compatibility
     path('api/students/<int:user_id>/progress/', views.dashboard_student_progress, name='student_progress'),
     path('api/students/<int:user_id>/progress/reset/', views.dashboard_reset_student_progress, name='student_progress_reset'),
+    
     path('dashboard/badges/', views.dashboard_badges, name='badges'),
     path('dashboard/notifications/', views.dashboard_notifications, name='notifications'),
     path('notifications/feed/', views.header_notifications_feed, name='header_notifications_feed'),
