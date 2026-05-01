@@ -191,58 +191,6 @@
         margin: 0;
     }
 
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.35rem 0.7rem;
-        border-radius: 999px;
-        font-size: 0.74rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    .status-pill.enrolled {
-        background: rgba(108, 117, 125, 0.12);
-        color: var(--text-muted);
-    }
-
-    .status-pill.in_progress {
-        background: rgba(13, 202, 240, 0.16);
-        color: #0b7285;
-    }
-
-    .status-pill.completed {
-        background: rgba(25, 135, 84, 0.16);
-        color: #1b7f4d;
-    }
-
-    .status-pill.failed {
-        background: rgba(220, 53, 69, 0.16);
-        color: #b02a37;
-    }
-
-    .status-pill.discontinued {
-        background: rgba(255, 159, 28, 0.16);
-        color: #b06a00;
-    }
-
-    [data-theme="dark"] .status-pill.in_progress {
-        color: #7bdff2;
-    }
-
-    [data-theme="dark"] .status-pill.completed {
-        color: #72d6a1;
-    }
-
-    [data-theme="dark"] .status-pill.failed {
-        color: #ff9aa5;
-    }
-
-    [data-theme="dark"] .status-pill.discontinued {
-        color: #ffd08a;
-    }
-
     .enrollment-modal-content {
         background: var(--bg-card);
         color: var(--text-main);
@@ -434,26 +382,32 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row g-3 g-lg-4 mb-4">
-        <div class="col-md-3">
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-3 g-lg-4 mb-4">
+        <div class="col">
             <div class="enrollment-stat-card">
                 <div class="enrollment-stat-label">Total Enrollments</div>
                 <div class="enrollment-stat-value">{{ stats.total }}</div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
+            <div class="enrollment-stat-card">
+                <div class="enrollment-stat-label">Active Guides</div>
+                <div class="enrollment-stat-value text-success">{{ guide_stats.active_guides }}</div>
+            </div>
+        </div>
+        <div class="col">
             <div class="enrollment-stat-card">
                 <div class="enrollment-stat-label">Completed</div>
                 <div class="enrollment-stat-value text-success">{{ stats.completed }}</div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="enrollment-stat-card">
                 <div class="enrollment-stat-label">In Progress</div>
                 <div class="enrollment-stat-value text-info">{{ stats.in_progress }}</div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="enrollment-stat-card">
                 <div class="enrollment-stat-label">Avg Progress</div>
                 <div class="enrollment-stat-value">{{ stats.avg_progress }}%</div>
@@ -546,7 +500,6 @@
                                                 <div class="enrollment-meta">{{ enrollment.user.email }}</div>
                                             </div>
                                         </div>
-                                        <span class="status-pill {{ enrollment.status }}">{{ enrollment.get_status_display }}</span>
                                     </div>
 
                                     <div class="enrollment-course-panel">
@@ -648,40 +601,9 @@
         </div>
 
         <div class="tab-pane fade {% if active_tab == 'guides' %}show active{% endif %}" id="guide-summary-pane" role="tabpanel" aria-labelledby="guide-summary-tab" tabindex="0">
-            <div class="row g-3 g-lg-4 mb-4">
-                <div class="col-md-3">
-                    <div class="enrollment-stat-card">
-                        <div class="enrollment-stat-label">Active Guides</div>
-                        <div class="enrollment-stat-value text-success">{{ guide_stats.active_guides }}</div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="enrollment-stat-card">
-                        <div class="enrollment-stat-label">Completed Courses</div>
-                        <div class="enrollment-stat-value text-success">{{ guide_stats.completed_courses }}</div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="enrollment-stat-card">
-                        <div class="enrollment-stat-label">In Progress</div>
-                        <div class="enrollment-stat-value text-info">{{ guide_stats.in_progress }}</div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="enrollment-stat-card">
-                        <div class="enrollment-stat-label">Avg Progress</div>
-                        <div class="enrollment-stat-value">{{ guide_stats.avg_progress }}%</div>
-                    </div>
-                </div>
-            </div>
-
             <div class="enrollment-filter-card mb-4">
                 <form method="get" class="row g-3">
                     <input type="hidden" name="tab" value="guides">
-
                     <div class="col-lg-6">
                         <label class="form-label small fw-bold">Search Park Guides</label>
                         <input
@@ -691,7 +613,6 @@
                             placeholder="Guide name or email..."
                             value="{{ guide_search_query }}">
                     </div>
-
                     <div class="col-lg-3">
                         <label class="form-label small fw-bold">Sort By</label>
                         <select name="guide_sort" class="form-select">
@@ -700,7 +621,6 @@
                             <option value="progress" {% if guide_sort_by == 'progress' %}selected{% endif %}>Highest Progress</option>
                         </select>
                     </div>
-
                     <div class="col-lg-3 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="bi bi-search me-2"></i>Search

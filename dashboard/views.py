@@ -539,71 +539,78 @@ def get_guide_queryset():
     return CustomUser.objects.filter(is_staff=False, is_superuser=False, is_active=True)
 
 def build_learning_insight_data(selected_course_id=None):
-    """Build learning insights data  for new course/chapter/quiz structure"""
+    """
+    Build data for the Overview page Learning Insights chart.
+    This chart is based on CourseEnrollment records:
+    - enrollment_status counts enrollment records by status
+    - chapter_coverage counts completed chapter slots across enrollments
+    A "chapter slot" means one assigned chapter for one guide enrollment.
+    Example: 3 guides enrolled in a course with 2 chapters = 6 chapter slots.
+    """
     selected_course_id = str(selected_course_id or 'all')
-    
-    all_courses = Course.objects.all().order_by('code')
-    total_enrollments = CourseEnrollment.objects.count()
-    
+    all_courses = Course.objects.all().order_by('code').prefetch_related('chapters')
+    all_enrollments = CourseEnrollment.objects.select_related('course', 'user').all()
+
+    def get_course_label(course):
+        return f"{course.code}: {get_title_text(course.title, 'en', 'Untitled')}"
+
+    def build_dataset_for_enrollments(label, enrollments_qs, course=None):
+        enrollments = list(enrollments_qs)
+        completed_count = sum(1 for item in enrollments if item.status == 'completed')
+        in_progress_count = sum(1 for item in enrollments if item.status == 'in_progress')
+        enrolled_count = sum(1 for item in enrollments if item.status == 'enrolled')
+        total_enrollments = len(enrollments)
+        total_chapter_slots = 0
+        completed_chapter_slots = 0
+        for enrollment in enrollments:
+            course_chapter_count = enrollment.course.chapters.count()
+            total_chapter_slots += course_chapter_count
+            completed_chapter_slots += ChapterProgress.objects.filter(user=enrollment.user, chapter__course=enrollment.course, is_complete=True).values('chapter_id').distinct().count()
+        if course:
+            chapter_count = course.chapters.count()
+            course_count = 1
+        else:
+            chapter_count = Chapter.objects.count()
+            course_count = all_courses.count()
+        avg_progress = round(enrollments_qs.aggregate(avg=Avg('progress_percentage'))['avg'] or 0, 1)
+        return {
+            'label': label,
+            'enrollment_status': {
+                'labels': ['Completed', 'In Progress', 'Enrolled / Not Started'],
+                'values': [completed_count, in_progress_count, enrolled_count],
+            },
+            'chapter_coverage': {
+                'labels': ['Completed Chapter Slots', 'Remaining Chapter Slots'],
+                'values': [completed_chapter_slots, max(total_chapter_slots - completed_chapter_slots, 0)],
+            },
+            'summary': {
+                'courses': course_count,
+                'chapters': chapter_count,
+                'total_enrollments': total_enrollments,
+                'completed_enrollments': completed_count,
+                'in_progress_enrollments': in_progress_count,
+                'enrolled_enrollments': enrolled_count,
+                'total_chapter_slots': total_chapter_slots,
+                'completed_chapter_slots': completed_chapter_slots,
+                'avg_progress': avg_progress,
+            },
+        }
     datasets = {
-        'all': {
-            'label': 'All Courses',
-            'enrollment_status': {
-                'labels': ['Completed', 'In Progress', 'Enrolled'],
-                'values': [
-                    CourseEnrollment.objects.filter(status='completed').count(),
-                    CourseEnrollment.objects.filter(status='in_progress').count(),
-                    CourseEnrollment.objects.filter(status='enrolled').count(),
-                ],
-            },
-            'summary': {
-                'courses': all_courses.count(),
-                'chapters': Chapter.objects.count(),
-                'lessons': Lesson.objects.count(),
-                'quizzes': Quiz.objects.count(),
-                'avg_progress': round(
-                    CourseEnrollment.objects.aggregate(avg=Avg('progress_percentage'))['avg'] or 0, 1
-                ),
-            },
-        }
+        'all': build_dataset_for_enrollments('All Courses', all_enrollments)
     }
-    
-    # Per-course breakdown
     for course in all_courses:
-        course_enrollments = CourseEnrollment.objects.filter(course=course)
-        
-        datasets[str(course.id)] = {
-            'label': course.code + ": " + get_title_text(course.title, 'en', 'Untitled'),
-            'enrollment_status': {
-                'labels': ['Completed', 'In Progress', 'Enrolled'],
-                'values': [
-                    course_enrollments.filter(status='completed').count(),
-                    course_enrollments.filter(status='in_progress').count(),
-                    course_enrollments.filter(status='enrolled').count(),
-                ],
-            },
-            'summary': {
-                'courses': 1,
-                'chapters': course.chapters.count(),
-                'lessons': Lesson.objects.filter(chapter__course=course).count(),
-                'quizzes': Quiz.objects.filter(chapter__course=course).count(),
-                'avg_progress': round(
-                    course_enrollments.aggregate(avg=Avg('progress_percentage'))['avg'] or 0, 1
-                ),
-            },
-        }
-    
+        course_enrollments = all_enrollments.filter(course=course)
+        datasets[str(course.id)] = build_dataset_for_enrollments(get_course_label(course), course_enrollments, course=course)
     if selected_course_id not in datasets:
         selected_course_id = 'all'
-    
     return {
         'selected_course_id': selected_course_id,
         'course_options': [
-            {'id': 'all', 'label': 'All 5 Courses'},
+            {'id': 'all', 'label': f'All {all_courses.count()} Courses'},
             *[
                 {
                     'id': str(course.id),
-                    'label': f"{course.code}: {get_title_text(course.title, 'en', 'Untitled')[:30]}"
+                    'label': get_course_label(course)
                 }
                 for course in all_courses
             ],
