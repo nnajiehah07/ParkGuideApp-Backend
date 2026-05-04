@@ -1,0 +1,1310 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Camera Monitoring | SFC Dashboard{% endblock %}
+
+{% block page_title %}Camera Monitoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    .monitor-page {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    .monitor-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+    }
+
+    #alerts-section,
+    #camera-modules-section {
+        scroll-margin-top: 96px;
+    }
+
+    .monitor-section-highlight {
+        position: relative;
+        overflow: hidden;
+        animation: monitorSectionBorderFade 1.5s ease-out forwards;
+    }
+
+    .monitor-section-highlight::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        pointer-events: none;
+        border-radius: inherit;
+        background:
+            linear-gradient(to bottom, rgba(245, 196, 107, 0.34), rgba(245, 196, 107, 0.08) 20%, transparent 44%, transparent 56%, rgba(245, 196, 107, 0.08) 80%, rgba(245, 196, 107, 0.28)),
+            linear-gradient(to right, rgba(245, 196, 107, 0.28), rgba(245, 196, 107, 0.07) 18%, transparent 42%, transparent 58%, rgba(245, 196, 107, 0.07) 82%, rgba(245, 196, 107, 0.28));
+        box-shadow:
+            inset 0 0 0 1px rgba(245, 196, 107, 0.6),
+            inset 0 0 25px rgba(245, 196, 107, 0.15);
+        opacity: 0; 
+        animation: monitorSectionTintFade 1.5s ease-out forwards;
+    }
+
+    @keyframes monitorSectionBorderFade {
+        0%, 40% {
+            border-color: rgba(245, 196, 107, 0.7);
+            box-shadow: 0 0 0 4px rgba(245, 196, 107, 0.12), 0 0 20px rgba(245, 196, 107, 0.18), var(--shadow);
+        }
+        100% {
+            border-color: var(--border);
+            box-shadow: var(--shadow);
+        }
+    }
+
+    @keyframes monitorSectionTintFade {
+        0%, 40% {
+            opacity: 0.85;
+        }
+        100% {
+            opacity: 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .monitor-section-highlight {
+            animation: none;
+            border-color: rgba(245, 196, 107, 0.7) !important;
+        }
+        .monitor-section-highlight::after {
+            animation: none;
+            opacity: 0.85 !important;
+        }
+    }
+
+    .monitor-card-header {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.8rem;
+    }
+
+    .monitor-card-title {
+        margin: 0;
+        color: var(--text-main);
+        font-size: 0.95rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .monitor-card-subtitle {
+        margin: 0.18rem 0 0;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+
+    .monitor-card-body {
+        padding: 1rem 1.15rem;
+    }
+
+    .monitor-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(120px, 1fr));
+        gap: 0.65rem;
+    }
+
+    .monitor-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-height: 42px;
+        border-radius: 12px;
+        padding: 0.55rem 0.8rem;
+        border: 1px solid var(--border);
+        background: var(--bg-body);
+        color: var(--text-main);
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-decoration: none;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .monitor-action-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .monitor-action-btn.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    .monitor-action-btn.primary:hover {
+        background: var(--primary-dark);
+        border-color: var(--primary-dark);
+        color: white;
+    }
+
+    .monitor-stat-card {
+        min-height: 74px;
+        padding: 0.72rem 0.85rem;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        column-gap: 0.7rem;
+        align-items: center;
+    }
+
+    .monitor-stat-top {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .monitor-stat-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(45, 106, 79, 0.1);
+        color: var(--primary);
+        flex: 0 0 30px;
+        font-size: 0.9rem;
+    }
+
+    .monitor-stat-value {
+        grid-column: 2;
+        margin-top: 0;
+        color: var(--text-main);
+        font-size: 1.25rem;
+        line-height: 1;
+        font-weight: 900;
+        align-self: end;
+    }
+
+    .monitor-stat-label {
+        grid-column: 2;
+        margin-top: 0.12rem;
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+        line-height: 1.2;
+        align-self: start;
+    }
+
+    .monitor-filter-card {
+        padding: 0.85rem 1rem;
+    }
+
+    .monitor-filter-toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: end;
+    }
+
+    .monitor-filters {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) 170px 170px auto;
+        gap: 0.65rem;
+        align-items: end;
+    }
+
+    .monitor-filter-actions {
+        display: grid;
+        grid-template-columns: repeat(2, max-content);
+        gap: 0.55rem;
+        align-items: end;
+    }
+
+    .monitor-filter-group label {
+        display: block;
+        margin-bottom: 0.35rem;
+        color: var(--text-muted);
+        font-size: 0.74rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .monitor-input,
+    .monitor-select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-body);
+        color: var(--text-main);
+        padding: 0.55rem 0.75rem;
+        outline: none;
+        font-size: 0.88rem;
+        font-weight: 700;
+    }
+
+    .monitor-input::placeholder {
+        color: var(--text-muted);
+    }
+
+    .monitor-filter-btn {
+        min-height: 42px;
+        border: 0;
+        border-radius: 12px;
+        padding: 0.55rem 1rem;
+        background: var(--primary);
+        color: white;
+        font-size: 0.88rem;
+        font-weight: 850;
+    }
+
+    .monitor-content-grid {
+        display: block;
+    }
+
+    .monitor-left-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        min-width: 0;
+    }
+
+    .monitor-table-wrap {
+        overflow-x: auto;
+    }
+
+    .monitor-table {
+        width: 100%;
+        min-width: 820px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .monitor-table th {
+        padding: 0.85rem 0.8rem;
+        background: var(--bg-body);
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .monitor-table td {
+        padding: 0.9rem 0.8rem;
+        color: var(--text-main);
+        font-size: 0.84rem;
+        font-weight: 650;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .monitor-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .monitor-table tbody tr:hover {
+        background: rgba(45, 106, 79, 0.045);
+    }
+
+    .device-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        min-width: 0;
+    }
+
+    .device-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(45, 106, 79, 0.1);
+        color: var(--primary);
+        flex: 0 0 34px;
+    }
+
+    .device-id {
+        color: var(--text-main);
+        font-weight: 900;
+        line-height: 1.25;
+    }
+
+    .device-sub {
+        margin-top: 0.12rem;
+        color: var(--text-muted);
+        font-size: 0.76rem;
+        font-weight: 650;
+    }
+
+    .status-pill,
+    .severity-pill,
+    .small-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        padding: 0.28rem 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .status-pill.online {
+        color: #198754;
+        background: rgba(25, 135, 84, 0.12);
+    }
+
+    .status-pill.issue {
+        color: #dc3545;
+        background: rgba(220, 53, 69, 0.12);
+    }
+
+    .status-pill.offline {
+        color: var(--text-muted);
+        background: rgba(108, 117, 125, 0.12);
+    }
+
+    .severity-pill.high {
+        color: #dc3545;
+        background: rgba(220, 53, 69, 0.12);
+    }
+
+    .severity-pill.medium {
+        color: #b7791f;
+        background: rgba(255, 193, 7, 0.16);
+    }
+
+    .severity-pill.low {
+        color: #198754;
+        background: rgba(25, 135, 84, 0.12);
+    }
+
+    .small-pill {
+        color: var(--text-main);
+        background: var(--bg-body);
+        border: 1px solid var(--border);
+    }
+
+    .monitor-search-highlight {
+        color: #0b1f15;
+        background: #f5c46b;
+        border-radius: 4px;
+        padding: 0 0.15rem;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+    }
+
+    [data-theme="dark"] .monitor-search-highlight {
+        color: #07130d;
+        background: #f5c46b;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: currentColor;
+        flex: 0 0 7px;
+    }
+
+    .alert-queue {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+        padding: 0.75rem 0.85rem;
+    }
+
+    .alert-row {
+        width: 100%;
+        height: 100%;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--bg-body);
+        color: var(--text-main);
+        text-align: left;
+        padding: 0.75rem;
+        transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .alert-row:hover,
+    .alert-row.active {
+        background: rgba(45, 106, 79, 0.07);
+        border-color: rgba(82, 183, 136, 0.35);
+        transform: translateY(-1px);
+        box-shadow: 0 5px 16px rgba(0, 0, 0, 0.14);
+    }
+
+    .alert-row-main {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.65rem;
+        align-items: start;
+    }
+
+    .alert-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(220, 53, 69, 0.12);
+        color: #dc3545;
+        flex: 0 0 32px;
+        font-size: 0.85rem;
+    }
+
+    .alert-title {
+        margin: 0;
+        color: var(--text-main);
+        font-size: 0.92rem;
+        font-weight: 900;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .alert-summary {
+        margin: 0.25rem 0 0;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .alert-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.55rem;
+    }
+
+    .evidence-video-box {
+        min-height: 220px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: #050806;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .video-placeholder {
+        width: 100%;
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 1.2rem;
+        background:
+            linear-gradient(135deg, rgba(45, 106, 79, 0.22), rgba(0, 0, 0, 0.12)),
+            repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.035) 0 10px, rgba(0, 0, 0, 0.035) 10px 20px);
+    }
+
+    .video-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(82, 183, 136, 0.16);
+        color: #52b788;
+        font-size: 1.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .video-title {
+        color: #ffffff;
+        font-size: 0.98rem;
+        font-weight: 900;
+        line-height: 1.35;
+    }
+
+    .video-subtitle {
+        margin-top: 0.35rem;
+        max-width: 280px;
+        color: rgba(255, 255, 255, 0.66);
+        font-size: 0.8rem;
+        font-weight: 650;
+        line-height: 1.45;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .detail-item {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--bg-body);
+        padding: 0.75rem;
+    }
+
+    .detail-label {
+        color: var(--text-muted);
+        font-size: 0.68rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .detail-value {
+        margin-top: 0.25rem;
+        color: var(--text-main);
+        font-size: 0.82rem;
+        font-weight: 800;
+        line-height: 1.4;
+    }
+
+    .long-detail {
+        margin-top: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--bg-body);
+        padding: 0.85rem;
+    }
+
+    .violation-modal-dialog {
+        max-width: min(1120px, calc(100vw - 2rem));
+    }
+
+    .violation-modal-card {
+        background: var(--bg-card);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+    }
+
+    .violation-modal-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .violation-modal-title-wrap {
+        min-width: 0;
+    }
+
+    .violation-modal-title {
+        margin: 0;
+        color: var(--text-main);
+        font-size: 1.25rem;
+        font-weight: 900;
+        line-height: 1.3;
+    }
+
+    .violation-modal-subtitle {
+        margin: 0.25rem 0 0;
+        color: var(--text-muted);
+        font-size: 0.86rem;
+        font-weight: 650;
+        line-height: 1.45;
+    }
+
+    .violation-modal-body {
+        padding: 1.25rem;
+    }
+
+    .violation-modal-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .violation-modal-video .evidence-video-box {
+        min-height: 360px;
+    }
+
+    .violation-modal-video .video-placeholder {
+        min-height: 360px;
+    }
+
+    .violation-modal-summary {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .violation-modal-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .violation-modal-footer {
+        padding: 0.95rem 1.25rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.65rem;
+    }
+
+    .violation-modal-footer .btn {
+        border-radius: 12px;
+        font-weight: 800;
+    }
+
+    .empty-state {
+        padding: 1.2rem;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .text-soft {
+        color: var(--text-muted);
+    }
+
+    [data-theme="dark"] .monitor-stat-icon,
+    [data-theme="dark"] .device-icon {
+        background: rgba(82, 183, 136, 0.14);
+        color: #72d9a6;
+    }
+
+    [data-theme="dark"] .status-pill.online {
+        color: #72d9a6;
+        background: rgba(114, 217, 166, 0.13);
+    }
+
+    [data-theme="dark"] .severity-pill.high,
+    [data-theme="dark"] .alert-icon,
+    [data-theme="dark"] .status-pill.issue {
+        color: #ff8f7f;
+        background: rgba(255, 143, 127, 0.13);
+    }
+
+    [data-theme="dark"] .severity-pill.medium {
+        color: #f5c46b;
+        background: rgba(245, 196, 107, 0.14);
+    }
+
+    [data-theme="dark"] .violation-modal-card .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    @media (min-width: 1500px) {
+        .alert-queue {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 1280px) {
+        .monitor-stats-grid {
+            grid-template-columns: repeat(3, minmax(120px, 1fr));
+        }
+
+        .monitor-filter-toolbar {
+            grid-template-columns: 1fr;
+        }
+
+        .monitor-filter-actions {
+            grid-template-columns: repeat(2, minmax(160px, 1fr));
+        }
+
+        .alert-queue {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .violation-modal-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .violation-modal-video .evidence-video-box,
+        .violation-modal-video .video-placeholder {
+            min-height: 260px;
+        }
+    }
+
+    @media (max-width: 820px) {
+        .monitor-filters {
+            grid-template-columns: 1fr;
+        }
+
+        .monitor-filter-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .monitor-stats-grid {
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .monitor-stats-grid,
+        .detail-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .alert-row-main {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .alert-row-main > .severity-pill {
+            grid-column: 2;
+            justify-self: flex-start;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="monitor-page">
+    <section class="monitor-stats-grid">
+        <div class="monitor-card monitor-stat-card">
+            <div class="monitor-stat-top">
+                <div class="monitor-stat-icon"><i class="bi bi-camera-video"></i></div>
+            </div>
+            <div class="monitor-stat-value">{{ stats.total_cameras }}</div>
+            <div class="monitor-stat-label">Camera Modules</div>
+        </div>
+
+        <div class="monitor-card monitor-stat-card">
+            <div class="monitor-stat-top">
+                <div class="monitor-stat-icon"><i class="bi bi-wifi"></i></div>
+            </div>
+            <div class="monitor-stat-value">{{ stats.online_cameras }}</div>
+            <div class="monitor-stat-label">Online</div>
+        </div>
+
+        <div class="monitor-card monitor-stat-card">
+            <div class="monitor-stat-top">
+                <div class="monitor-stat-icon"><i class="bi bi-tools"></i></div>
+            </div>
+            <div class="monitor-stat-value">{{ stats.issue_cameras }}</div>
+            <div class="monitor-stat-label">With Issues</div>
+        </div>
+
+        <div class="monitor-card monitor-stat-card">
+            <div class="monitor-stat-top">
+                <div class="monitor-stat-icon"><i class="bi bi-bell"></i></div>
+            </div>
+            <div class="monitor-stat-value">{{ stats.total_alerts }}</div>
+            <div class="monitor-stat-label">Total Alerts</div>
+        </div>
+
+        <div class="monitor-card monitor-stat-card">
+            <div class="monitor-stat-top">
+                <div class="monitor-stat-icon"><i class="bi bi-hourglass-split"></i></div>
+            </div>
+            <div class="monitor-stat-value">{{ stats.pending_alerts }}</div>
+            <div class="monitor-stat-label">Pending Review</div>
+        </div>
+
+        <div class="monitor-card monitor-stat-card">
+            <div class="monitor-stat-top">
+                <div class="monitor-stat-icon"><i class="bi bi-exclamation-octagon"></i></div>
+            </div>
+            <div class="monitor-stat-value">{{ stats.high_severity_alerts }}</div>
+            <div class="monitor-stat-label">High Severity</div>
+        </div>
+    </section>
+
+    <section class="monitor-card monitor-filter-card">
+        <div class="monitor-filter-toolbar">
+            <form class="monitor-filters" method="get">
+                <div class="monitor-filter-group">
+                    <label for="monitor-search">Search</label>
+                    <input id="monitor-search" class="monitor-input" type="search" name="search" value="{{ search_query }}" placeholder="Camera ID, guide, location, alert...">
+                </div>
+
+                <div class="monitor-filter-group">
+                    <label for="monitor-status">Camera Status</label>
+                    <select id="monitor-status" class="monitor-select" name="status">
+                        <option value="">All statuses</option>
+                        <option value="online" {% if selected_status == 'online' %}selected{% endif %}>Online</option>
+                        <option value="issue" {% if selected_status == 'issue' %}selected{% endif %}>Issue</option>
+                        <option value="offline" {% if selected_status == 'offline' %}selected{% endif %}>Offline</option>
+                    </select>
+                </div>
+
+                <div class="monitor-filter-group">
+                    <label for="monitor-severity">Alert Severity</label>
+                    <select id="monitor-severity" class="monitor-select" name="severity">
+                        <option value="">All severities</option>
+                        <option value="High" {% if selected_severity == 'High' %}selected{% endif %}>High</option>
+                        <option value="Medium" {% if selected_severity == 'Medium' %}selected{% endif %}>Medium</option>
+                        <option value="Low" {% if selected_severity == 'Low' %}selected{% endif %}>Low</option>
+                    </select>
+                </div>
+
+                <button class="monitor-filter-btn" type="submit">
+                    Apply
+                </button>
+            </form>
+
+            <div class="monitor-filter-actions" aria-label="Monitor quick actions">
+                <a class="monitor-action-btn primary" href="#alerts-section">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Review Alerts
+                </a>
+
+                <a class="monitor-action-btn" href="#camera-modules-section">
+                    <i class="bi bi-camera-video"></i>
+                    Camera Modules
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="monitor-content-grid">
+        <div class="monitor-left-stack">
+            <section id="alerts-section" class="monitor-card">
+                <div class="monitor-card-header">
+                    <div>
+                        <h2 class="monitor-card-title">Violation Alert Queue</h2>
+                        <p class="monitor-card-subtitle">Select an alert to inspect returned footage evidence and detection details.</p>
+                    </div>
+                    <span class="small-pill">{{ stats.pending_alerts }} pending</span>
+                </div>
+
+                <div class="alert-queue">
+                    {% for alert in monitor_alerts %}
+                    <button type="button" class="alert-row" data-alert-id="{{ alert.id }}" aria-haspopup="dialog">
+                        <div class="alert-row-main">
+                            <div class="alert-icon">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+
+                            <div>
+                                <h3 class="alert-title">{{ alert.title }}</h3>
+                                <p class="alert-summary">{{ alert.summary }}</p>
+
+                                <div class="alert-meta">
+                                    <span class="small-pill">{{ alert.status }}</span>
+                                    <span class="small-pill">{{ alert.confidence }}</span>
+                                    <span class="small-pill">{{ alert.camera_id }}</span>
+                                    <span class="small-pill">{{ alert.received_at }}</span>
+                                </div>
+                            </div>
+
+                            <span class="severity-pill {{ alert.severity|lower }}">{{ alert.severity }}</span>
+                        </div>
+                    </button>
+
+                    <script type="application/json" id="alert-data-{{ alert.id }}">
+                        {
+                            "id": "{{ alert.id|escapejs }}",
+                            "title": "{{ alert.title|escapejs }}",
+                            "summary": "{{ alert.summary|escapejs }}",
+                            "severity": "{{ alert.severity|escapejs }}",
+                            "status": "{{ alert.status|escapejs }}",
+                            "detected_activity": "{{ alert.detected_activity|escapejs }}",
+                            "confidence": "{{ alert.confidence|escapejs }}",
+                            "camera_id": "{{ alert.camera_id|escapejs }}",
+                            "camera_product_name": "{{ alert.camera_product_name|escapejs }}",
+                            "guide_name": "{{ alert.guide_name|escapejs }}",
+                            "location": "{{ alert.location|escapejs }}",
+                            "captured_at": "{{ alert.captured_at|escapejs }}",
+                            "received_at": "{{ alert.received_at|escapejs }}",
+                            "video_filename": "{{ alert.video_filename|escapejs }}",
+                            "video_duration": "{{ alert.video_duration|escapejs }}",
+                            "evidence_status": "{{ alert.evidence_status|escapejs }}",
+                            "recommended_action": "{{ alert.recommended_action|escapejs }}",
+                            "details": "{{ alert.details|escapejs }}"
+                        }
+                    </script>
+                    {% empty %}
+                    <div class="empty-state">No alerts found for the selected filters.</div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section id="camera-modules-section" class="monitor-card">
+                <div class="monitor-card-header">
+                    <div>
+                        <h2 class="monitor-card-title">Camera Modules</h2>
+                        <p class="monitor-card-subtitle">Device health, last contact, upload timing, and field signal data.</p>
+                    </div>
+                    <span class="small-pill">{{ stats.total_cameras }} devices</span>
+                </div>
+
+                <div class="monitor-table-wrap">
+                    <table class="monitor-table">
+                        <thead>
+                            <tr>
+                                <th>Device</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                                <th>Last Upload</th>
+                                <th>Battery</th>
+                                <th>WiFi RSSI</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for camera in camera_modules %}
+                            <tr>
+                                <td>
+                                    <div class="device-cell">
+                                        <div class="device-icon"><i class="bi bi-camera-video"></i></div>
+                                        <div>
+                                            <div class="device-id">{{ camera.id }}</div>
+                                            <div class="device-sub">{{ camera.product_name }} · {{ camera.module_variant }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-pill {{ camera.status }}">
+                                        <span class="status-dot"></span>
+                                        {{ camera.status_label }}
+                                    </span>
+                                </td>
+                                <td>{{ camera.last_seen }}</td>
+                                <td>{{ camera.last_upload }}</td>
+                                <td>{{ camera.battery_level }}%</td>
+                                <td>{{ camera.wifi_rssi }} dBm</td>
+                                <td>{{ camera.location }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7">
+                                    <div class="empty-state">No camera modules found for the selected filters.</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </section>
+
+    <div class="modal fade" id="violationDetailsModal" tabindex="-1" aria-labelledby="violationDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable violation-modal-dialog">
+            <div class="modal-content violation-modal-card">
+                <div class="violation-modal-header">
+                    <div class="violation-modal-title-wrap">
+                        <h2 class="violation-modal-title" id="violationDetailsModalLabel">Violation Details</h2>
+                        <p class="violation-modal-subtitle" id="violation-modal-summary">Selected alert footage and review information.</p>
+                    </div>
+
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body violation-modal-body">
+                    <div class="violation-modal-layout">
+                        <div class="violation-modal-video">
+                            <div class="evidence-video-box">
+                                <div class="video-placeholder">
+                                    <div class="video-icon"><i class="bi bi-play-fill"></i></div>
+                                    <div class="video-title" id="modal-evidence-video-title">Video evidence placeholder</div>
+                                    <div class="video-subtitle" id="modal-evidence-video-subtitle">Attached footage details will appear here.</div>
+                                </div>
+                            </div>
+
+                            <div class="long-detail">
+                                <div class="detail-label">Details</div>
+                                <div class="detail-value" id="modal-detail-description">-</div>
+                            </div>
+
+                            <div class="long-detail">
+                                <div class="detail-label">Recommended Action</div>
+                                <div class="detail-value" id="modal-detail-action">-</div>
+                            </div>
+                        </div>
+
+                        <div class="violation-modal-summary">
+                            <div class="violation-modal-pills">
+                                <span class="severity-pill medium" id="modal-detail-severity-pill">Severity</span>
+                                <span class="small-pill" id="modal-detail-status-pill">Status</span>
+                                <span class="small-pill" id="modal-detail-confidence-pill">Confidence</span>
+                            </div>
+
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <div class="detail-label">Alert</div>
+                                    <div class="detail-value" id="modal-detail-title">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Detected Activity</div>
+                                    <div class="detail-value" id="modal-detail-activity">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Camera</div>
+                                    <div class="detail-value" id="modal-detail-camera">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Guide</div>
+                                    <div class="detail-value" id="modal-detail-guide">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Location</div>
+                                    <div class="detail-value" id="modal-detail-location">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Captured</div>
+                                    <div class="detail-value" id="modal-detail-captured">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Received</div>
+                                    <div class="detail-value" id="modal-detail-received">-</div>
+                                </div>
+
+                                <div class="detail-item">
+                                    <div class="detail-label">Evidence Status</div>
+                                    <div class="detail-value" id="modal-detail-evidence-status">-</div>
+                                </div>
+                            </div>
+
+                            <div class="long-detail">
+                                <div class="detail-label">Summary</div>
+                                <div class="detail-value" id="modal-detail-summary">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="violation-modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function setText(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value || "-";
+        }
+    }
+
+    function parseAlertData(alertId) {
+        const script = document.getElementById(`alert-data-${alertId}`);
+        if (!script) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(script.textContent);
+        } catch (error) {
+            console.error("Unable to parse alert data:", error);
+            return null;
+        }
+    }
+
+    function setSeverityPill(severity) {
+        const pill = document.getElementById("modal-detail-severity-pill");
+        if (!pill) {
+            return;
+        }
+
+        const normalizedSeverity = String(severity || "").toLowerCase();
+        pill.className = `severity-pill ${normalizedSeverity || "medium"}`;
+        pill.textContent = severity || "N/A";
+    }
+
+    function renderViolationModal(alert) {
+        if (!alert) {
+            return;
+        }
+
+        setText("violationDetailsModalLabel", alert.title || "Violation Details");
+        setText("violation-modal-summary", alert.summary || "Selected alert footage and review information.");
+        setText("modal-evidence-video-title", alert.video_filename || "Video evidence placeholder");
+        setText("modal-evidence-video-subtitle", `${alert.video_duration || "N/A"} · ${alert.evidence_status || "Pending"}`);
+        setSeverityPill(alert.severity);
+        setText("modal-detail-status-pill", alert.status);
+        setText("modal-detail-confidence-pill", alert.confidence);
+        setText("modal-detail-title", alert.title);
+        setText("modal-detail-summary", alert.summary);
+        setText("modal-detail-activity", alert.detected_activity);
+        setText("modal-detail-camera", `${alert.camera_product_name || "ESP32-CAM"} (${alert.camera_id || "N/A"})`);
+        setText("modal-detail-guide", alert.guide_name);
+        setText("modal-detail-location", alert.location);
+        setText("modal-detail-captured", alert.captured_at);
+        setText("modal-detail-received", alert.received_at);
+        setText("modal-detail-evidence-status", alert.evidence_status);
+        setText("modal-detail-description", alert.details);
+        setText("modal-detail-action", alert.recommended_action);
+    }
+
+    function openViolationModal(card, modalInstance) {
+        document.querySelectorAll(".alert-row").forEach((item) => item.classList.remove("active"));
+        card.classList.add("active");
+
+        const alert = parseAlertData(card.dataset.alertId);
+        renderViolationModal(alert);
+
+        if (modalInstance) {
+            modalInstance.show();
+        }
+    }
+
+        function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function getHighlightTerms() {
+        const searchInput = document.getElementById("monitor-search");
+        const statusSelect = document.getElementById("monitor-status");
+        const severitySelect = document.getElementById("monitor-severity");
+        const rawTerms = [
+            searchInput ? searchInput.value.trim() : "",
+            statusSelect ? statusSelect.value.trim() : "",
+            severitySelect ? severitySelect.value.trim() : "",
+        ];
+
+        return rawTerms.filter((term) => term.length > 0);
+    }
+
+    function highlightTextNode(textNode, terms) {
+        const text = textNode.nodeValue;
+        if (!text || !text.trim()) {
+            return;
+        }
+
+        const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
+
+        if (!pattern.test(text)) {
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        const parts = text.split(pattern);
+
+        parts.forEach((part) => {
+            if (!part) {
+                return;
+            }
+
+            pattern.lastIndex = 0;
+
+            if (pattern.test(part)) {
+                const mark = document.createElement("mark");
+                mark.className = "monitor-search-highlight";
+                mark.textContent = part;
+                fragment.appendChild(mark);
+            } else {
+                fragment.appendChild(document.createTextNode(part));
+            }
+        });
+
+        textNode.parentNode.replaceChild(fragment, textNode);
+    }
+
+    function highlightMatchesInContainer(container, terms) {
+        if (!container || terms.length === 0) {
+            return;
+        }
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const parent = node.parentElement;
+                if (!parent) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                if (parent.closest("script, style, mark, input, select, button.monitor-filter-btn")) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            },
+        });
+        const textNodes = [];
+        while (walker.nextNode()) {
+            textNodes.push(walker.currentNode);
+        }
+        textNodes.forEach((node) => highlightTextNode(node, terms));
+    }
+
+    function applyMonitorHighlights() {
+        const terms = getHighlightTerms();
+        if (terms.length === 0) {
+            return;
+        }
+        highlightMatchesInContainer(document.querySelector(".alert-queue"), terms);
+        highlightMatchesInContainer(document.querySelector(".monitor-table tbody"), terms);
+    }
+
+    function flashMonitorSection(section) {
+        if (!section) return;
+        if (section.dataset.flashTimeout) {
+            clearTimeout(Number(section.dataset.flashTimeout));
+        }
+        section.classList.remove("monitor-section-highlight");
+        void section.offsetWidth; // Reflow to restart animation if clicked repeatedly
+        section.classList.add("monitor-section-highlight");
+        const timeoutId = window.setTimeout(() => {
+            section.classList.remove("monitor-section-highlight");
+            delete section.dataset.flashTimeout;
+        }, 600); 
+
+        section.dataset.flashTimeout = timeoutId;
+    }
+
+    function setupMonitorSectionLinks() {
+        const sectionLinks = Array.from(document.querySelectorAll('.monitor-action-btn[href^="#"]'));
+        sectionLinks.forEach((link) => {
+            link.addEventListener("click", (event) => {
+                const targetId = link.getAttribute("href");
+                const targetSection = document.querySelector(targetId);
+                if (!targetSection) return;
+                event.preventDefault();
+                flashMonitorSection(targetSection);
+                targetSection.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const modalElement = document.getElementById("violationDetailsModal");
+        const violationModal = modalElement ? new bootstrap.Modal(modalElement) : null;
+        const cards = Array.from(document.querySelectorAll(".alert-row"));
+        cards.forEach((card) => {
+            card.addEventListener("click", () => openViolationModal(card, violationModal));
+        });
+
+        if (modalElement) {
+            modalElement.addEventListener("hidden.bs.modal", () => {
+                document.querySelectorAll(".alert-row").forEach((item) => item.classList.remove("active"));
+            });
+        }
+
+        applyMonitorHighlights();
+        setupMonitorSectionLinks();
+    });
+</script>
+{% endblock %}

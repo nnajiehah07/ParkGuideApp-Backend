@@ -784,6 +784,9 @@
                 <a href="{% url 'dashboard:notifications' %}" class="nav-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                     <i class="bi bi-bell"></i> Notifications
                 </a>
+                <a href="{% url 'dashboard:monitor' %}" class="nav-link {% if request.resolver_match.url_name == 'monitor' %}active{% endif %}">
+                    <i class="bi bi-camera-video"></i> Monitor
+                </a>
                 <a href="{% url 'dashboard:secure_files' %}" class="nav-link {% if request.resolver_match.url_name == 'secure_files' %}active{% endif %}">
                     <i class="bi bi-cloud-upload"></i> Secure Files
                 </a>
