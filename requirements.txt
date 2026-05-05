@@ -8,3 +8,4 @@ firebase-admin==7.1.0
 reportlab==4.0.9
 requests>=2.31.0
 webauthn>=2.7.1
+ultralytics>=8.0.0

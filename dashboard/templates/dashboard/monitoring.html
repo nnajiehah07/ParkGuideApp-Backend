@@ -1,0 +1,235 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Monitoring - Dashboard{% endblock %}
+{% block page_title %}<i class="bi bi-eye-fill me-2"></i>Monitoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    .monitoring-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .monitoring-summary-card {
+        min-height: 140px;
+        border-radius: 20px;
+        border: 1px solid rgba(45, 106, 79, 0.16);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(45, 106, 79, 0.04));
+        padding: 1.2rem;
+    }
+
+    [data-theme="dark"] .monitoring-summary-card {
+        background: linear-gradient(180deg, rgba(22, 27, 24, 0.96), rgba(82, 183, 136, 0.05));
+        border-color: rgba(82, 183, 136, 0.18);
+    }
+
+    .monitoring-summary-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        font-weight: 800;
+    }
+
+    .monitoring-summary-value {
+        font-size: clamp(1.6rem, 3vw, 2.4rem);
+        font-weight: 800;
+        line-height: 1.1;
+        margin-top: 0.45rem;
+    }
+
+    .monitoring-summary-note {
+        color: var(--text-muted);
+        margin-top: 0.6rem;
+        line-height: 1.45;
+    }
+
+    .monitoring-table td,
+    .monitoring-table th {
+        vertical-align: middle;
+    }
+
+    .monitoring-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--bg-body);
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .monitoring-file-link {
+        max-width: 260px;
+        word-break: break-word;
+    }
+
+    @media (max-width: 991.98px) {
+        .monitoring-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .monitoring-summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="monitoring-summary-grid mb-4">
+    <div class="monitoring-summary-card">
+        <div class="monitoring-summary-label">Active Sessions</div>
+        <div class="monitoring-summary-value text-primary">{{ stats.active_sessions }}</div>
+        <div class="monitoring-summary-note">{{ stats.total_sessions }} total monitoring sessions logged.</div>
+    </div>
+    <div class="monitoring-summary-card">
+        <div class="monitoring-summary-label">Pending Alerts</div>
+        <div class="monitoring-summary-value text-warning">{{ stats.pending_alerts }}</div>
+        <div class="monitoring-summary-note">Awaiting admin review and action.</div>
+    </div>
+    <div class="monitoring-summary-card">
+        <div class="monitoring-summary-label">High Severity</div>
+        <div class="monitoring-summary-value text-danger">{{ stats.high_alerts }}</div>
+        <div class="monitoring-summary-note">Violation clips marked as high severity.</div>
+    </div>
+    <div class="monitoring-summary-card">
+        <div class="monitoring-summary-label">Stored Evidence</div>
+        <div class="monitoring-summary-value text-success">{{ stats.stored_evidence }}</div>
+        <div class="monitoring-summary-note">Evidence remains until an admin deletes it.</div>
+    </div>
+</div>
+
+<div class="glass-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <h5 class="fw-bold mb-1">Monitoring Alerts</h5>
+            <div class="text-muted small">AI-detected clips from the phone fallback or ESP32 camera feed.</div>
+        </div>
+        <a href="{% url 'dashboard:secure_files' %}" class="btn btn-outline-primary">Manage Evidence Files</a>
+    </div>
+
+    {% if alerts %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle monitoring-table">
+            <thead>
+                <tr>
+                    <th>Alert</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Source</th>
+                    <th>Evidence</th>
+                    <th>Received</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ alert.title }}</div>
+                        <div class="small text-muted">{{ alert.summary }}</div>
+                        <div class="small text-muted mt-1">{{ alert.detected_activity }} • Confidence {{ alert.confidence_display }}</div>
+                    </td>
+                    <td>
+                        <span class="badge {% if alert.severity == 'High' %}bg-danger{% elif alert.severity == 'Medium' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                            {{ alert.severity }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if alert.status == 'pending' %}bg-warning text-dark{% elif alert.status == 'reviewed' %}bg-info text-dark{% else %}bg-success{% endif %}">
+                            {{ alert.status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="small fw-semibold">{{ alert.camera_source }}</div>
+                        <div class="small text-muted">{{ alert.source_mode_display }}</div>
+                    </td>
+                    <td>
+                        {% if alert.evidence_file %}
+                            <a class="btn btn-sm btn-outline-primary monitoring-file-link" href="/api/secure-files/files/{{ alert.evidence_file.id }}/download/" target="_blank" rel="noopener noreferrer">
+                                Open clip
+                            </a>
+                            <div class="small text-muted mt-1">{{ alert.evidence_file.original_name }}</div>
+                        {% else %}
+                            <span class="text-muted">No stored file</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ alert.received_at|timesince }} ago</td>
+                    <td>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <form method="post" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="mark_alert_reviewed">
+                                <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                                <button class="btn btn-sm btn-outline-info" type="submit">Review</button>
+                            </form>
+                            <form method="post" class="d-inline" onsubmit="return confirm('Delete this alert and its stored evidence?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_alert">
+                                <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-shield-check" style="font-size: 2rem;"></i>
+            <div class="mt-2">No monitoring alerts have been recorded yet.</div>
+        </div>
+    {% endif %}
+</div>
+
+<div class="glass-card">
+    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <h5 class="fw-bold mb-1">Monitoring Sessions</h5>
+            <div class="text-muted small">Current and recent capture sessions.</div>
+        </div>
+    </div>
+
+    {% if sessions %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle monitoring-table">
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>Source</th>
+                        <th>Interval</th>
+                        <th>Last Clip</th>
+                        <th>State</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                        <tr>
+                            <td class="fw-semibold">#{{ session.id }}</td>
+                            <td>{{ session.camera_source }}</td>
+                            <td>{{ session.clip_interval_minutes }} min</td>
+                            <td>{% if session.last_clip_at %}{{ session.last_clip_at|timesince }} ago{% else %}<span class="text-muted">N/A</span>{% endif %}</td>
+                            <td>
+                                <span class="monitoring-pill">
+                                    <i class="bi {% if session.is_active %}bi-play-circle text-success{% else %}bi-pause-circle text-muted{% endif %}"></i>
+                                    {% if session.is_active %}Active{% else %}Stopped{% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-4 text-muted">No sessions found yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

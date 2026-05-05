@@ -427,6 +427,42 @@
 </div>
 
 <div class="row overview-row-compact mb-4">
+    <div class="col-lg-12">
+        <div class="glass-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                <div>
+                    <h5 class="fw-bold mb-1"><i class="bi bi-eye-fill text-danger me-2"></i>Monitoring & Alerts</h5>
+                    <div class="text-muted small">Backend AI sessions, pending alerts, and stored evidence.</div>
+                </div>
+                <a href="{% url 'dashboard:monitoring' %}" class="btn btn-sm btn-outline-primary">Open Monitoring</a>
+            </div>
+            <div class="backup-summary-grid">
+                <div class="backup-summary-tile">
+                    <div class="backup-summary-kicker">Active Sessions</div>
+                    <div class="backup-summary-value text-primary">{{ monitoring_summary.active_sessions }}</div>
+                    <div class="backup-summary-subtext">{{ monitoring_summary.total_sessions }} total sessions recorded.</div>
+                </div>
+                <div class="backup-summary-tile">
+                    <div class="backup-summary-kicker">Pending Alerts</div>
+                    <div class="backup-summary-value text-warning">{{ monitoring_summary.pending_alerts }}</div>
+                    <div class="backup-summary-subtext">AI alerts waiting for review.</div>
+                </div>
+                <div class="backup-summary-tile">
+                    <div class="backup-summary-kicker">High Severity</div>
+                    <div class="backup-summary-value text-danger">{{ monitoring_summary.high_alerts }}</div>
+                    <div class="backup-summary-subtext">Violation evidence retained for admin action.</div>
+                </div>
+                <div class="backup-summary-tile">
+                    <div class="backup-summary-kicker">Stored Evidence</div>
+                    <div class="backup-summary-value text-success">{{ monitoring_summary.stored_evidence }}</div>
+                    <div class="backup-summary-subtext">Evidence files stay until deleted by an admin.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row overview-row-compact mb-4">
     <div class="col-lg-6">
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-center mb-3">

@@ -47,6 +47,7 @@ from notifications.models import Notification, UserNotification
 from notifications.services import send_push_to_users
 from secure_files.models import SecureFile
 from secure_files.services.firebase_storage import delete_file as delete_secure_blob, upload_file
+from monitoring.models import MonitorSession, ViolationAlert
 from .models import BackupSetting, BackupHistory, BackupAuditLog
 
 
@@ -694,6 +695,8 @@ def get_dashboard_stats(request):
     recent_activity.sort(key=lambda x: x['timestamp'], reverse=True)
     recent_activity = recent_activity[:15]  # Keep top 15
     
+    monitoring_summary = get_monitoring_dashboard_summary()
+
     context = {
         'stats': {
             'total_users': total_users,
@@ -723,6 +726,7 @@ def get_dashboard_stats(request):
             'total': total_notifications,
             'unread': unread_notifications,
         },
+        'monitoring_summary': monitoring_summary,
         'learning_insights': learning_insights,
         'backup_summary': backup_summary,
         'recent_activity': recent_activity,
@@ -743,6 +747,47 @@ def dashboard_home(request):
     """Dashboard overview/home page"""
     context = get_dashboard_stats(request)
     return render(request, 'dashboard/index.html', context)
+
+
+@login_required
+@user_passes_test(is_staff_or_admin)
+def dashboard_monitoring(request):
+    """Monitoring and AI alert management page"""
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+        alert_id = request.POST.get('alert_id')
+        alert = ViolationAlert.objects.select_related('evidence_file').filter(id=alert_id).first()
+
+        if action == 'mark_alert_reviewed' and alert:
+            alert.status = ViolationAlert.STATUS_REVIEWED
+            alert.save(update_fields=['status'])
+            messages.success(request, f'Alert "{alert.title}" marked as reviewed.')
+            return redirect('dashboard:monitoring')
+
+        if action == 'delete_alert' and alert:
+            secure_file = alert.evidence_file
+            if secure_file:
+                try:
+                    delete_secure_blob(secure_file.s3_key)
+                except ImproperlyConfigured:
+                    pass
+                secure_file.delete()
+            title = alert.title
+            alert.delete()
+            messages.success(request, f'Alert "{title}" and its evidence were deleted.')
+            return redirect('dashboard:monitoring')
+
+        messages.error(request, 'Unable to process the requested monitoring action.')
+        return redirect('dashboard:monitoring')
+
+    monitoring_summary = get_monitoring_dashboard_summary()
+    context = {
+        'stats': monitoring_summary,
+        'alerts': monitoring_summary['recent_alerts'],
+        'sessions': monitoring_summary['sessions'],
+    }
+    return render(request, 'dashboard/monitoring.html', context)
+
 
 @login_required
 @user_passes_test(is_staff_or_admin)
@@ -2652,6 +2697,33 @@ def get_admin_notification_summary():
         'total_count': total_count,
         'unread_count': unread_count,
         'all_read': total_count > 0 and unread_count == 0,
+    }
+
+
+def get_monitoring_dashboard_summary():
+    active_sessions = MonitorSession.objects.filter(is_active=True).count()
+    total_sessions = MonitorSession.objects.count()
+    pending_alerts = ViolationAlert.objects.filter(status=ViolationAlert.STATUS_PENDING).count()
+    high_alerts = ViolationAlert.objects.filter(severity=ViolationAlert.SEVERITY_HIGH).count()
+    stored_evidence = ViolationAlert.objects.filter(evidence_file__isnull=False).count()
+    recent_alerts = list(
+        ViolationAlert.objects.select_related('session', 'evidence_file', 'user').order_by('-received_at')[:12]
+    )
+
+    for alert in recent_alerts:
+        alert.confidence_display = 'N/A' if alert.confidence_score is None else f'{alert.confidence_score:.0%}'
+        alert.status_display = alert.get_status_display()
+        alert.source_mode_display = alert.get_source_mode_display()
+
+    sessions = list(MonitorSession.objects.select_related('user').order_by('-updated_at')[:12])
+    return {
+        'active_sessions': active_sessions,
+        'total_sessions': total_sessions,
+        'pending_alerts': pending_alerts,
+        'high_alerts': high_alerts,
+        'stored_evidence': stored_evidence,
+        'recent_alerts': recent_alerts,
+        'sessions': sessions,
     }
 
 @login_required

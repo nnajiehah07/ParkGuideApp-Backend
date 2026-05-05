@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'courses',
     'user_progress.apps.UserProgressConfig',
     'secure_files.apps.SecureFilesConfig',
+    'monitoring.apps.MonitoringConfig',
     'notifications.apps.NotificationsConfig',
     'accounts',
     'dashboard.apps.DashboardConfig',

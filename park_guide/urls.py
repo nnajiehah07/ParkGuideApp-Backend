@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     # Fresh API routes MUST come FIRST to avoid conflicts with dashboard api/* patterns
     path('api/', include('courses.urls_fresh')),  # Fresh API - complete rewrite
+    path('api/monitor/', include('monitoring.urls')),
     path('api/notifications/', include('notifications.urls')),
     path('api/user-progress/', include('user_progress.urls')),
     path('api/secure-files/', include('secure_files.urls')),
