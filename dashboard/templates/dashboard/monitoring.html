@@ -7,7 +7,7 @@
 <style>
     .monitoring-summary-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1rem;
     }
 
@@ -50,6 +50,36 @@
         vertical-align: middle;
     }
 
+    .monitoring-alerts-scroll {
+        max-height: min(720px, 72vh);
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+    }
+
+    .monitoring-alerts-scroll .monitoring-table {
+        margin-bottom: 0;
+    }
+
+    .monitoring-alerts-scroll thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .monitoring-alert-title {
+        max-width: 360px;
+    }
+
+    .monitoring-alert-summary {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
     .monitoring-pill {
         display: inline-flex;
         align-items: center;
@@ -77,37 +107,32 @@
         object-fit: contain;
     }
 
-    .monitoring-upload-card {
-        border-radius: 20px;
-        border: 1px solid rgba(45, 106, 79, 0.16);
-        background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(45, 106, 79, 0.05));
+    .monitoring-recorder-status {
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--bg-body);
+        padding: 1rem;
     }
 
-    [data-theme="dark"] .monitoring-upload-card {
-        background: linear-gradient(180deg, rgba(22, 27, 24, 0.96), rgba(82, 183, 136, 0.06));
-        border-color: rgba(82, 183, 136, 0.18);
+    .monitoring-test-panel {
+        border-radius: 16px;
+        border: 1px dashed rgba(45, 106, 79, 0.32);
+        background: var(--bg-body);
+        padding: 1rem;
     }
 
-    .monitoring-upload-grid {
+    .monitoring-test-grid {
         display: grid;
-        grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(150px, 1fr));
-        gap: 1rem;
-        align-items: end;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.9rem;
     }
 
-    .monitoring-upload-help {
-        color: var(--text-muted);
-        font-size: 0.85rem;
-        line-height: 1.45;
+    .monitoring-test-grid .wide {
+        grid-column: span 2;
     }
 
     @media (max-width: 991.98px) {
-        .monitoring-summary-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .monitoring-upload-grid {
+        .monitoring-test-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
     }
@@ -117,8 +142,12 @@
             grid-template-columns: 1fr;
         }
 
-        .monitoring-upload-grid {
+        .monitoring-test-grid {
             grid-template-columns: 1fr;
+        }
+
+        .monitoring-test-grid .wide {
+            grid-column: auto;
         }
     }
 </style>
@@ -126,11 +155,6 @@
 
 {% block content %}
 <div class="monitoring-summary-grid mb-4">
-    <div class="monitoring-summary-card">
-        <div class="monitoring-summary-label">Active Sessions</div>
-        <div class="monitoring-summary-value text-primary">{{ stats.active_sessions }}</div>
-        <div class="monitoring-summary-note">{{ stats.total_sessions }} total monitoring sessions logged.</div>
-    </div>
     <div class="monitoring-summary-card">
         <div class="monitoring-summary-label">Pending Alerts</div>
         <div class="monitoring-summary-value text-warning">{{ stats.pending_alerts }}</div>
@@ -148,70 +172,87 @@
     </div>
 </div>
 
-<div class="glass-card monitoring-upload-card mb-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+<div class="glass-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-            <h5 class="fw-bold mb-1">AI Video Test</h5>
-            <div class="monitoring-upload-help">Upload a short clip to run the same AI evidence pipeline used by phone and ESP32 monitoring uploads.</div>
+            <h5 class="fw-bold mb-1">RangerEye AI Pipeline</h5>
+            <div class="text-muted small">{{ recorder_status.message }}</div>
+            <div class="small text-muted mt-1">Last: {{ recorder_status.last_recording }} • Next: {{ recorder_status.next_recording }}</div>
         </div>
         <span class="monitoring-pill">
-            <i class="bi bi-cpu text-primary"></i>
-            Creates an alert only when AI detects a watched class
+            <i class="bi {% if recorder_status.running %}bi-record-circle text-danger{% else %}bi-hourglass-split text-success{% endif %}"></i>
+            {% if recorder_status.running %}Processing{% else %}Waiting{% endif %}
         </span>
     </div>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="upload_test_video">
-        <div class="monitoring-upload-grid">
-            <div>
-                <label for="test-video" class="form-label fw-semibold">Test Video</label>
-                <input id="test-video" class="form-control" type="file" name="test_video" accept="video/*,.mp4,.mov,.avi,.mkv,.webm" required>
-            </div>
-            <div>
-                <label for="source-mode" class="form-label fw-semibold">Source</label>
-                <select id="source-mode" class="form-select" name="source_mode">
-                    <option value="phone">Phone camera</option>
-                    <option value="esp32">ESP32 camera</option>
-                </select>
-            </div>
-            <div>
-                <label for="camera-source" class="form-label fw-semibold">Camera ID</label>
-                <input id="camera-source" class="form-control" type="text" name="camera_source" value="dashboard-test" placeholder="dashboard-test">
-            </div>
-            <div>
-                <label for="clip-duration" class="form-label fw-semibold">Duration</label>
-                <input id="clip-duration" class="form-control" type="text" name="clip_duration" placeholder="e.g. 00:15">
-            </div>
-            <div>
-                <label for="clip-interval" class="form-label fw-semibold">Interval Min</label>
-                <input id="clip-interval" class="form-control" type="number" name="clip_interval_minutes" value="5" min="1">
-            </div>
-            <div>
-                <label for="guide-name" class="form-label fw-semibold">Guide</label>
-                <input id="guide-name" class="form-control" type="text" name="guide_name" value="{{ request.user.get_full_name }}" placeholder="{{ request.user.username }}">
-            </div>
-            <div>
-                <label for="upload-location" class="form-label fw-semibold">Location</label>
-                <input id="upload-location" class="form-control" type="text" name="location" value="Dashboard AI test upload">
-            </div>
-            <button class="btn btn-primary fw-semibold" type="submit">
-                <i class="bi bi-cloud-upload me-2"></i>Run AI Test
-            </button>
+</div>
+
+<div class="glass-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <h5 class="fw-bold mb-1">Test AI Upload</h5>
+            <div class="text-muted small">Upload one video clip to run the same ESP32 AI processing path manually.</div>
         </div>
-    </form>
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#testAiUploadPanel" aria-expanded="false" aria-controls="testAiUploadPanel">
+            <i class="bi bi-upload me-1"></i>Open Test Upload
+        </button>
+    </div>
+
+    <div class="collapse" id="testAiUploadPanel">
+        <div class="monitoring-test-panel">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="upload_test_video">
+                <div class="monitoring-test-grid">
+                    <div class="wide">
+                        <label class="form-label fw-semibold" for="test_video">Video clip</label>
+                        <input class="form-control" id="test_video" name="test_video" type="file" accept="video/*" required>
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold" for="camera_source">Camera ID</label>
+                        <input class="form-control" id="camera_source" name="camera_source" value="RE-CAM-01">
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold" for="clip_interval_minutes">Interval</label>
+                        <input class="form-control" id="clip_interval_minutes" name="clip_interval_minutes" type="number" min="1" value="5">
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold" for="guide_name">Guide name</label>
+                        <input class="form-control" id="guide_name" name="guide_name" value="{{ request.user.get_full_name|default:request.user.username }}">
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold" for="clip_duration">Clip duration</label>
+                        <input class="form-control" id="clip_duration" name="clip_duration" placeholder="0:03">
+                    </div>
+                    <div class="wide">
+                        <label class="form-label fw-semibold" for="location">Location</label>
+                        <input class="form-control" id="location" name="location" value="Dashboard AI test upload">
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                    <div class="text-muted small">No-alert clips are deleted after processing. Alert clips keep the annotated evidence file.</div>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-cpu me-1"></i>Run AI Test
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="glass-card mb-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <div>
             <h5 class="fw-bold mb-1">Monitoring Alerts</h5>
-            <div class="text-muted small">AI-detected clips from the phone fallback or ESP32 camera feed.</div>
+            <div class="text-muted small">{{ stats.total_alerts }} AI-detected ESP32 clip{{ stats.total_alerts|pluralize }} in the current database.</div>
         </div>
-        <a href="{% url 'dashboard:secure_files' %}" class="btn btn-outline-primary">Manage Evidence Files</a>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="monitoring-pill"><i class="bi bi-list-check text-primary"></i>{{ stats.total_alerts }} total</span>
+            <a href="{% url 'dashboard:secure_files' %}" class="btn btn-outline-primary">Manage Evidence Files</a>
+        </div>
     </div>
 
     {% if alerts %}
-    <div class="table-responsive">
+    <div class="table-responsive monitoring-alerts-scroll">
         <table class="table table-hover align-middle monitoring-table">
             <thead>
                 <tr>
@@ -228,8 +269,10 @@
                 {% for alert in alerts %}
                 <tr>
                     <td>
-                        <div class="fw-semibold">{{ alert.title }}</div>
-                        <div class="small text-muted">{{ alert.summary }}</div>
+                        <div class="monitoring-alert-title">
+                            <div class="fw-semibold">{{ alert.title }}</div>
+                            <div class="small text-muted monitoring-alert-summary">{{ alert.summary }}</div>
+                        </div>
                         <div class="small text-muted mt-1">{{ alert.detected_activity }} • Confidence {{ alert.confidence_display }}</div>
                     </td>
                     <td>
@@ -290,46 +333,4 @@
     {% endif %}
 </div>
 
-<div class="glass-card">
-    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
-        <div>
-            <h5 class="fw-bold mb-1">Monitoring Sessions</h5>
-            <div class="text-muted small">Current and recent capture sessions.</div>
-        </div>
-    </div>
-
-    {% if sessions %}
-        <div class="table-responsive">
-            <table class="table table-hover align-middle monitoring-table">
-                <thead>
-                    <tr>
-                        <th>Session</th>
-                        <th>Source</th>
-                        <th>Interval</th>
-                        <th>Last Clip</th>
-                        <th>State</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for session in sessions %}
-                        <tr>
-                            <td class="fw-semibold">#{{ session.id }}</td>
-                            <td>{{ session.camera_source }}</td>
-                            <td>{{ session.clip_interval_minutes }} min</td>
-                            <td>{% if session.last_clip_at %}{{ session.last_clip_at|timesince }} ago{% else %}<span class="text-muted">N/A</span>{% endif %}</td>
-                            <td>
-                                <span class="monitoring-pill">
-                                    <i class="bi {% if session.is_active %}bi-play-circle text-success{% else %}bi-pause-circle text-muted{% endif %}"></i>
-                                    {% if session.is_active %}Active{% else %}Stopped{% endif %}
-                                </span>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <div class="text-center py-4 text-muted">No sessions found yet.</div>
-    {% endif %}
-</div>
 {% endblock %}

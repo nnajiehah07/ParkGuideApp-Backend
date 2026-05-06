@@ -122,7 +122,7 @@ def send_push_to_users(users, title, description, data=None):
     logger.info(f"send_push_notification result: {result}")
     return result
 
-def create_notification_for_users(*,users,title,description="",full_text="",created_by=None,audience_type=Notification.AUDIENCE_SELECTED_GUIDES,tracking_type=Notification.TRACKING_INFO_ONLY,related_user=None,send_push=True):
+def create_notification_for_users(*,users,title,description="",full_text="",created_by=None,audience_type=Notification.AUDIENCE_SELECTED_GUIDES,tracking_type=Notification.TRACKING_INFO_ONLY,related_user=None,send_push=True,push_data=None):
     user_ids = list(users.values_list("id", flat=True))
     if not user_ids:
         return None, 0
@@ -131,16 +131,19 @@ def create_notification_for_users(*,users,title,description="",full_text="",crea
     
     # Send push notification if enabled
     if send_push:
+        data = {'notification_id': str(notification.id)}
+        if push_data:
+            data.update(push_data)
         send_push_to_users(
             users=users,
             title=title,
             description=description,
-            data={'notification_id': str(notification.id)}
+            data=data
         )
     
     return notification, len(user_ids)
 
-def create_notification_for_user(*,user,title,description="",full_text="",created_by=None,related_user=None,send_push=True):
+def create_notification_for_user(*,user,title,description="",full_text="",created_by=None,related_user=None,send_push=True,push_data=None):
     return create_notification_for_users(
         users=get_user_model().objects.filter(id=user.id),
         title=title,
@@ -151,9 +154,10 @@ def create_notification_for_user(*,user,title,description="",full_text="",create
         tracking_type=Notification.TRACKING_INFO_ONLY,
         related_user=related_user or user,
         send_push=send_push,
+        push_data=push_data,
     )
 
-def create_notification_for_staff(*,title,description="",full_text="",created_by=None,related_user=None,send_push=True):
+def create_notification_for_staff(*,title,description="",full_text="",created_by=None,related_user=None,send_push=True,push_data=None):
     User = get_user_model()
     staff_users = User.objects.filter(is_active=True, is_staff=True)
     return create_notification_for_users(
@@ -166,4 +170,5 @@ def create_notification_for_staff(*,title,description="",full_text="",created_by
         tracking_type=Notification.TRACKING_ADMIN_SHARED,
         related_user=related_user,
         send_push=send_push,
+        push_data=push_data,
     )

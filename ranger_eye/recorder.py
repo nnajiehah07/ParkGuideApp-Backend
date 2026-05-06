@@ -9,6 +9,9 @@ import imageio_ffmpeg
 from django.conf import settings
 from django.utils import timezone
 
+from monitoring.models import MonitorSession
+from monitoring.services import process_monitoring_clip
+
 from .models import RangerEyeRecorderStatus, RangerEyeRecording
 
 
@@ -246,8 +249,37 @@ def record_one_video():
         )
 
         update_status(
+            running=True,
+            message=f"Running AI analysis for {filename}...",
+        )
+
+        try:
+            result = process_monitoring_clip(
+                output_path,
+                uploaded_name=filename,
+                content_type="video/mp4",
+                source_mode=MonitorSession.SOURCE_ESP32,
+                camera_source="RE-CAM-01",
+                guide_name="RangerEye ESP32-CAM",
+                location="Guided Tour Route",
+                clip_duration=f"{VIDEO_DURATION_SECONDS}s",
+                clip_interval_minutes=max(RECORD_EVERY_SECONDS // 60, 1),
+                annotate=True,
+                send_notifications=True,
+            )
+            if result["alert"] is None:
+                ai_message = "AI analysis completed: no monitored activity detected."
+            else:
+                alert = result["alert"]
+                confidence = "N/A" if alert.confidence_score is None else f"{alert.confidence_score:.0%}"
+                ai_message = f"AI alert #{alert.id}: {alert.detected_activity} ({alert.severity}, {confidence})."
+        except Exception as exc:
+            ai_message = f"Saved video, but AI alert processing failed: {exc}"
+            print(ai_message)
+
+        update_status(
             running=False,
-            message=f"Saved {filename}",
+            message=f"Saved {filename}. {ai_message}",
             last_recording=filename,
         )
 

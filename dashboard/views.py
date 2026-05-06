@@ -9,7 +9,6 @@ from django.http import JsonResponse, HttpResponse
 from django.db.models import Count, Q, Avg, Sum
 from django.utils import timezone
 from django.core.exceptions import ImproperlyConfigured
-from django.core.files import File
 from django.core.mail import send_mail
 from django.conf import settings
 from .forms import CourseForm, CourseImportForm, ChapterForm, LessonForm, QuizForm, PracticeExerciseForm
@@ -50,7 +49,8 @@ from notifications.services import send_push_to_users
 from secure_files.models import SecureFile
 from secure_files.services.firebase_storage import delete_file as delete_secure_blob, upload_file
 from monitoring.models import MonitorSession, ViolationAlert
-from monitoring.services import analyze_uploaded_evidence, upsert_active_session
+from monitoring.services import process_monitoring_clip
+from ranger_eye.models import RangerEyeRecorderStatus
 from .models import BackupSetting, BackupHistory, BackupAuditLog
 
 
@@ -771,11 +771,8 @@ def dashboard_monitoring(request):
                 messages.error(request, 'Please upload a valid video file such as MP4, MOV, AVI, MKV, or WEBM.')
                 return redirect('dashboard:monitoring')
 
-            source_mode = request.POST.get('source_mode') or MonitorSession.SOURCE_PHONE
-            if source_mode not in {MonitorSession.SOURCE_PHONE, MonitorSession.SOURCE_ESP32}:
-                source_mode = MonitorSession.SOURCE_PHONE
-
-            camera_source = request.POST.get('camera_source', '').strip() or 'dashboard-test'
+            source_mode = MonitorSession.SOURCE_ESP32
+            camera_source = request.POST.get('camera_source', '').strip() or 'RE-CAM-01'
             guide_name = request.POST.get('guide_name', '').strip() or request.user.get_full_name() or request.user.get_username()
             location = request.POST.get('location', '').strip() or 'Dashboard AI test upload'
             clip_duration = request.POST.get('clip_duration', '').strip()
@@ -785,27 +782,17 @@ def dashboard_monitoring(request):
                 clip_interval_minutes = 5
 
             temp_path = None
-            annotated_video_path = None
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix or '.mp4') as temp_file:
                     for chunk in uploaded.chunks():
                         temp_file.write(chunk)
                     temp_path = Path(temp_file.name)
 
-                uploaded.seek(0)
-                secure_file = upload_file(uploaded=uploaded, owner=request.user)
-                session = upsert_active_session(
-                    request.user,
-                    source_mode=source_mode,
-                    camera_source=camera_source,
-                    clip_interval_minutes=clip_interval_minutes,
-                )
-                session.last_clip_at = timezone.now()
-                session.last_seen_at = timezone.now()
-                session.save(update_fields=['last_clip_at', 'last_seen_at', 'updated_at'])
-
-                analysis = analyze_uploaded_evidence(
+                result = process_monitoring_clip(
                     temp_path,
+                    owner=request.user,
+                    uploaded_name=uploaded.name,
+                    content_type=content_type,
                     camera_source=camera_source,
                     source_mode=source_mode,
                     guide_name=guide_name,
@@ -813,56 +800,15 @@ def dashboard_monitoring(request):
                     clip_duration=clip_duration,
                     clip_interval_minutes=clip_interval_minutes,
                     annotate=True,
+                    send_notifications=True,
+                    created_by=request.user,
                 )
 
-                if analysis is None:
-                    try:
-                        delete_secure_blob(secure_file.s3_key)
-                    except ImproperlyConfigured:
-                        pass
-                    secure_file.delete()
+                if result['alert'] is None:
                     messages.info(request, 'AI test completed: no monitored violation or risk class was detected, so the test clip was deleted.')
                     return redirect('dashboard:monitoring')
 
-                annotated_video_path = analysis.get('annotated_video_path')
-                if annotated_video_path:
-                    processed_path = Path(annotated_video_path)
-                    if processed_path.exists():
-                        processed_name = f'{Path(uploaded.name).stem}_ai_boxes.mp4'
-                        with processed_path.open('rb') as processed_file:
-                            processed_upload = File(processed_file, name=processed_name)
-                            processed_upload.content_type = 'video/mp4'
-                            processed_upload.size = processed_path.stat().st_size
-                            processed_secure_file = upload_file(uploaded=processed_upload, owner=request.user)
-                        try:
-                            delete_secure_blob(secure_file.s3_key)
-                        except ImproperlyConfigured:
-                            pass
-                        secure_file.delete()
-                        secure_file = processed_secure_file
-
-                alert = ViolationAlert.objects.create(
-                    user=request.user,
-                    session=session,
-                    evidence_file=secure_file,
-                    source_mode=source_mode,
-                    title=analysis['title'],
-                    summary=analysis['summary'],
-                    severity=analysis['severity'],
-                    status=analysis['status'],
-                    detected_activity=analysis['detected_activity'],
-                    detected_class=analysis.get('detected_class', ''),
-                    confidence_score=analysis.get('confidence_score'),
-                    camera_source=analysis.get('camera_source', camera_source),
-                    guide_name=analysis.get('guide_name', guide_name),
-                    location=analysis.get('location', location),
-                    video_filename=secure_file.original_name,
-                    video_duration=analysis.get('video_duration', clip_duration),
-                    evidence_status=analysis.get('evidence_status', 'Pending AI review'),
-                    recommended_action=analysis.get('recommended_action', 'Review the returned footage.'),
-                    details=analysis.get('details', ''),
-                    raw_payload=analysis.get('raw_payload', {}),
-                )
+                alert = result['alert']
                 confidence = 'N/A' if alert.confidence_score is None else f'{alert.confidence_score:.0%}'
                 messages.success(
                     request,
@@ -879,11 +825,6 @@ def dashboard_monitoring(request):
                 if temp_path and temp_path.exists():
                     try:
                         temp_path.unlink()
-                    except OSError:
-                        pass
-                if annotated_video_path:
-                    try:
-                        Path(annotated_video_path).unlink(missing_ok=True)
                     except OSError:
                         pass
 
@@ -916,7 +857,7 @@ def dashboard_monitoring(request):
     context = {
         'stats': monitoring_summary,
         'alerts': monitoring_summary['recent_alerts'],
-        'sessions': monitoring_summary['sessions'],
+        'recorder_status': monitoring_summary['recorder_status'],
     }
     return render(request, 'dashboard/monitoring.html', context)
 
@@ -2833,29 +2774,29 @@ def get_admin_notification_summary():
 
 
 def get_monitoring_dashboard_summary():
-    active_sessions = MonitorSession.objects.filter(is_active=True).count()
-    total_sessions = MonitorSession.objects.count()
+    total_alerts = ViolationAlert.objects.count()
     pending_alerts = ViolationAlert.objects.filter(status=ViolationAlert.STATUS_PENDING).count()
     high_alerts = ViolationAlert.objects.filter(severity=ViolationAlert.SEVERITY_HIGH).count()
     stored_evidence = ViolationAlert.objects.filter(evidence_file__isnull=False).count()
-    recent_alerts = list(
-        ViolationAlert.objects.select_related('session', 'evidence_file', 'user').order_by('-received_at')[:12]
-    )
+    total_sessions = MonitorSession.objects.count()
+    active_sessions = MonitorSession.objects.filter(is_active=True).count()
+    recorder_status, _ = RangerEyeRecorderStatus.objects.get_or_create(pk=1)
+    recent_alerts = list(ViolationAlert.objects.select_related('session', 'evidence_file', 'user').order_by('-received_at', '-id'))
 
     for alert in recent_alerts:
         alert.confidence_display = 'N/A' if alert.confidence_score is None else f'{alert.confidence_score:.0%}'
         alert.status_display = alert.get_status_display()
         alert.source_mode_display = alert.get_source_mode_display()
 
-    sessions = list(MonitorSession.objects.select_related('user').order_by('-updated_at')[:12])
     return {
-        'active_sessions': active_sessions,
-        'total_sessions': total_sessions,
+        'total_alerts': total_alerts,
         'pending_alerts': pending_alerts,
         'high_alerts': high_alerts,
         'stored_evidence': stored_evidence,
+        'total_sessions': total_sessions,
+        'active_sessions': active_sessions,
+        'recorder_status': recorder_status,
         'recent_alerts': recent_alerts,
-        'sessions': sessions,
     }
 
 @login_required

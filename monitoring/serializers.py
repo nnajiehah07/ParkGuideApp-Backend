@@ -73,5 +73,5 @@ class ViolationAlertSerializer(serializers.ModelSerializer):
 
     def get_video_url(self, obj):
         if obj.evidence_file:
-            return obj.evidence_file.download_url
+            return SecureFileSerializer().get_download_url(obj.evidence_file)
         return None

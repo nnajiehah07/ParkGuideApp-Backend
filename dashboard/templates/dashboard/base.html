@@ -781,7 +781,7 @@
                 <a href="{% url 'dashboard:badges' %}" class="nav-link {% if request.resolver_match.url_name == 'badges' %}active{% endif %}">
                     <i class="bi bi-trophy"></i> Badges
                 </a>
-                <a href="{% url 'dashboard:monitoring' %}" class="nav-link {% if request.resolver_match.url_name == 'monitoring' %}active{% endif %}">
+                <a href="{% url 'dashboard:monitoring' %}" class="nav-link {% if request.resolver_match.url_name == 'monitoring' or request.resolver_match.url_name == 'monitor' %}active{% endif %}">
                     <i class="bi bi-eye"></i> Monitoring
                 </a>
                 <a href="{% url 'dashboard:notifications' %}" class="nav-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">

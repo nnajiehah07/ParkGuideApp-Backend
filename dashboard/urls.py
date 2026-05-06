@@ -48,6 +48,7 @@ urlpatterns = [
     path('api/students/<int:user_id>/progress/reset/', views.dashboard_reset_student_progress, name='student_progress_reset'),
     
     path('dashboard/badges/', views.dashboard_badges, name='badges'),
+    path('dashboard/monitor/', views.dashboard_monitoring, name='monitor'),
     path('dashboard/monitoring/', views.dashboard_monitoring, name='monitoring'),
     path('dashboard/notifications/', views.dashboard_notifications, name='notifications'),
     path('notifications/feed/', views.header_notifications_feed, name='header_notifications_feed'),

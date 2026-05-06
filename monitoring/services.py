@@ -1,10 +1,17 @@
 import os
+import mimetypes
 import subprocess
 import tempfile
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from django.core.files import File
 from django.utils import timezone
+
+from notifications.services import create_notification_for_staff, create_notification_for_user, create_notification_for_users
+from secure_files.services.firebase_storage import delete_file as delete_secure_blob, upload_file
 
 try:
     from ultralytics import YOLO
@@ -283,7 +290,7 @@ def _analyze_video_with_annotations(model, file_path, class_names):
     }
 
 
-def analyze_uploaded_evidence(file_path, *, camera_source="phone-camera", source_mode="phone", guide_name="", location="", clip_duration="", clip_interval_minutes=None, annotate=False):
+def analyze_uploaded_evidence(file_path, *, camera_source="RE-CAM-01", source_mode=MonitorSession.SOURCE_ESP32, guide_name="", location="", clip_duration="", clip_interval_minutes=None, annotate=False):
     model = load_detection_model()
     if model is None:
         return {
@@ -364,14 +371,14 @@ def analyze_uploaded_evidence(file_path, *, camera_source="phone-camera", source
     }
 
 
-def upsert_active_session(user, *, source_mode="phone", camera_source="phone-camera", clip_interval_minutes=5):
+def upsert_active_session(user, *, source_mode=MonitorSession.SOURCE_ESP32, camera_source="RE-CAM-01", clip_interval_minutes=5):
     session = MonitorSession.objects.filter(user=user, is_active=True).order_by("-updated_at").first()
     if session is None:
         session = MonitorSession(user=user)
 
     session.is_active = True
-    session.source_mode = source_mode or MonitorSession.SOURCE_PHONE
-    session.camera_source = camera_source or "phone-camera"
+    session.source_mode = MonitorSession.SOURCE_ESP32
+    session.camera_source = camera_source or "RE-CAM-01"
     session.clip_interval_minutes = max(int(clip_interval_minutes or 5), 1)
     session.last_seen_at = timezone.now()
     session.save()
@@ -388,3 +395,236 @@ def stop_active_session(user):
     session.last_seen_at = timezone.now()
     session.save()
     return session
+
+
+def get_monitoring_owner(preferred_user=None):
+    if preferred_user is not None:
+        return preferred_user
+
+    User = get_user_model()
+    return (
+        User.objects.filter(is_active=True, is_staff=True).order_by("id").first()
+        or User.objects.filter(is_active=True, is_superuser=True).order_by("id").first()
+        or User.objects.filter(is_active=True).order_by("id").first()
+    )
+
+
+def _upload_path_to_secure_file(file_path, *, owner, name=None, content_type=None):
+    file_path = Path(file_path)
+    upload_name = name or file_path.name
+    guessed_content_type = content_type or mimetypes.guess_type(upload_name)[0] or "application/octet-stream"
+
+    with file_path.open("rb") as raw_file:
+        upload = File(raw_file, name=upload_name)
+        upload.content_type = guessed_content_type
+        upload.size = file_path.stat().st_size
+        return upload_file(uploaded=upload, owner=owner)
+
+
+def _delete_secure_file(secure_file):
+    if secure_file is None:
+        return
+    try:
+        delete_secure_blob(secure_file.s3_key)
+    except Exception:
+        pass
+    secure_file.delete()
+
+
+def notify_monitoring_alert(alert, *, created_by=None, include_guide=True):
+    confidence = "N/A" if alert.confidence_score is None else f"{alert.confidence_score:.0%}"
+    title = f"{alert.severity} AI monitoring alert"
+    description = f"{alert.detected_activity} detected at {alert.location or alert.camera_source}."
+    full_text = (
+        f"{alert.summary}\n\n"
+        f"Activity: {alert.detected_activity}\n"
+        f"Severity: {alert.severity}\n"
+        f"Confidence: {confidence}\n"
+        f"Source: {alert.camera_source}\n"
+        f"Guide: {alert.guide_name or alert.user.get_full_name() or alert.user.get_username()}\n"
+        f"Recommended action: {alert.recommended_action}"
+    )
+    push_data = {
+        "type": "monitoring_alert",
+        "monitoring_alert_id": str(alert.id),
+        "alert_id": str(alert.id),
+    }
+
+    create_notification_for_staff(
+        title=title,
+        description=description,
+        full_text=full_text,
+        created_by=created_by,
+        related_user=alert.user,
+        send_push=True,
+        push_data=push_data,
+    )
+
+    if not include_guide:
+        return
+
+    if alert.user and not alert.user.is_staff and not alert.user.is_superuser:
+        create_notification_for_user(
+            user=alert.user,
+            title=title,
+            description=description,
+            full_text=full_text,
+            created_by=created_by,
+            related_user=alert.user,
+            send_push=True,
+            push_data=push_data,
+        )
+        return
+
+    User = get_user_model()
+    guide_users = User.objects.filter(is_active=True, is_staff=False, is_superuser=False)
+    create_notification_for_users(
+        users=guide_users,
+        title=title,
+        description=description,
+        full_text=full_text,
+        created_by=created_by,
+        related_user=alert.user,
+        send_push=True,
+        push_data=push_data,
+    )
+
+
+def process_monitoring_clip(
+    file_path,
+    *,
+    owner=None,
+    uploaded_name=None,
+    content_type=None,
+    source_mode=MonitorSession.SOURCE_ESP32,
+    camera_source="RE-CAM-01",
+    guide_name="",
+    location="Field monitoring preview",
+    clip_duration="",
+    clip_interval_minutes=5,
+    annotate=False,
+    send_notifications=True,
+    created_by=None,
+):
+    owner = get_monitoring_owner(owner)
+    if owner is None:
+        raise ImproperlyConfigured("Monitoring alerts need at least one active user to own the evidence.")
+
+    source_mode = MonitorSession.SOURCE_ESP32
+
+    try:
+        clip_interval_minutes = max(int(clip_interval_minutes or 5), 1)
+    except (TypeError, ValueError):
+        clip_interval_minutes = 5
+
+    file_path = Path(file_path)
+    upload_name = uploaded_name or file_path.name
+    upload_content_type = content_type or mimetypes.guess_type(upload_name)[0] or "video/mp4"
+    raw_secure_file = _upload_path_to_secure_file(
+        file_path,
+        owner=owner,
+        name=upload_name,
+        content_type=upload_content_type,
+    )
+
+    try:
+        analysis = analyze_uploaded_evidence(
+            file_path,
+            camera_source=camera_source,
+            source_mode=source_mode,
+            guide_name=guide_name,
+            location=location,
+            clip_duration=clip_duration,
+            clip_interval_minutes=clip_interval_minutes,
+            annotate=annotate,
+        )
+    except Exception:
+        _delete_secure_file(raw_secure_file)
+        raise
+
+    if analysis is None:
+        _delete_secure_file(raw_secure_file)
+        return {
+            "alert": None,
+            "secure_file": None,
+            "session": None,
+            "analysis": None,
+            "deleted_after_processing": True,
+        }
+
+    annotated_video_path = analysis.get("annotated_video_path")
+    secure_file = raw_secure_file
+    raw_evidence_replaced = False
+    if annotated_video_path:
+        processed_name = f"{Path(upload_name).stem}_ai_boxes.mp4"
+        processed_path = Path(annotated_video_path)
+        if processed_path.exists():
+            secure_file = _upload_path_to_secure_file(
+                processed_path,
+                owner=owner,
+                name=processed_name,
+                content_type="video/mp4",
+            )
+            _delete_secure_file(raw_secure_file)
+            raw_evidence_replaced = True
+
+    session = upsert_active_session(
+        owner,
+        source_mode=source_mode,
+        camera_source=camera_source,
+        clip_interval_minutes=clip_interval_minutes,
+    )
+    session.last_clip_at = timezone.now()
+    session.last_seen_at = timezone.now()
+    session.save(update_fields=["last_clip_at", "last_seen_at", "updated_at"])
+
+    alert = ViolationAlert.objects.create(
+        user=owner,
+        session=session,
+        evidence_file=secure_file,
+        source_mode=source_mode,
+        title=analysis["title"],
+        summary=analysis["summary"],
+        severity=analysis["severity"],
+        status=analysis["status"],
+        detected_activity=analysis["detected_activity"],
+        detected_class=analysis.get("detected_class", ""),
+        confidence_score=analysis.get("confidence_score"),
+        camera_source=analysis.get("camera_source", camera_source),
+        guide_name=analysis.get("guide_name", guide_name),
+        location=analysis.get("location", location),
+        video_filename=secure_file.original_name,
+        video_duration=analysis.get("video_duration", clip_duration),
+        evidence_status=analysis.get("evidence_status", "Pending AI review"),
+        recommended_action=analysis.get("recommended_action", "Review the returned footage."),
+        details=analysis.get("details", ""),
+        raw_payload={
+            **(analysis.get("raw_payload", {}) or {}),
+            "raw_evidence_uploaded_first": True,
+            "raw_evidence_replaced_by_processed_clip": raw_evidence_replaced,
+        },
+    )
+
+    if send_notifications:
+        try:
+            notify_monitoring_alert(alert, created_by=created_by)
+        except Exception as exc:
+            alert.raw_payload = {
+                **(alert.raw_payload or {}),
+                "notification_error": str(exc),
+            }
+            alert.save(update_fields=["raw_payload"])
+
+    if annotated_video_path:
+        try:
+            Path(annotated_video_path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    return {
+        "alert": alert,
+        "secure_file": secure_file,
+        "session": session,
+        "analysis": analysis,
+        "deleted_after_processing": False,
+    }

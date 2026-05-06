@@ -1,20 +1,15 @@
-import os
 import tempfile
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
-from django.utils import timezone
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from secure_files.services.firebase_storage import delete_file as delete_secure_blob, upload_file
-
 from .models import MonitorSession, ViolationAlert
 from .serializers import MonitorSessionSerializer, ViolationAlertSerializer
-from .services import analyze_uploaded_evidence, stop_active_session, upsert_active_session
+from .services import process_monitoring_clip, stop_active_session, upsert_active_session
 
 
 class MonitorStatusView(APIView):
@@ -22,7 +17,7 @@ class MonitorStatusView(APIView):
 
     def get(self, request):
         session = MonitorSession.objects.filter(user=request.user).order_by("-updated_at").first()
-        alert_qs = ViolationAlert.objects.filter(user=request.user)
+        alert_qs = ViolationAlert.objects.all()
         latest_alert = alert_qs.order_by("-received_at").first()
 
         is_live = bool(session and session.is_active)
@@ -36,8 +31,8 @@ class MonitorStatusView(APIView):
             {
                 "is_live": is_live,
                 "state": state,
-                "source": session.source_mode if session else MonitorSession.SOURCE_PHONE,
-                "camera_source": session.camera_source if session else "phone-camera",
+                "source": MonitorSession.SOURCE_ESP32,
+                "camera_source": session.camera_source if session else "RE-CAM-01",
                 "stream_url": None,
                 "session_id": session.id if session else None,
                 "alert_count": alert_qs.count(),
@@ -52,8 +47,8 @@ class MonitorSessionStartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        source_mode = request.data.get("source_mode", MonitorSession.SOURCE_PHONE)
-        camera_source = request.data.get("camera_source", "phone-camera")
+        source_mode = MonitorSession.SOURCE_ESP32
+        camera_source = request.data.get("camera_source", "RE-CAM-01")
         clip_interval_minutes = request.data.get("clip_interval_minutes", 5)
 
         session = upsert_active_session(
@@ -62,8 +57,8 @@ class MonitorSessionStartView(APIView):
             camera_source=camera_source,
             clip_interval_minutes=clip_interval_minutes,
         )
-        session.alert_count = ViolationAlert.objects.filter(user=request.user).count()
-        session.last_alert_at = ViolationAlert.objects.filter(user=request.user).order_by("-received_at").values_list("received_at", flat=True).first()
+        session.alert_count = ViolationAlert.objects.count()
+        session.last_alert_at = ViolationAlert.objects.order_by("-received_at").values_list("received_at", flat=True).first()
         serializer = MonitorSessionSerializer(session)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -75,8 +70,8 @@ class MonitorSessionStopView(APIView):
         session = stop_active_session(request.user)
         if session is None:
             return Response({"localOnly": True, "sessionActive": False}, status=status.HTTP_200_OK)
-        session.alert_count = ViolationAlert.objects.filter(user=request.user).count()
-        session.last_alert_at = ViolationAlert.objects.filter(user=request.user).order_by("-received_at").values_list("received_at", flat=True).first()
+        session.alert_count = ViolationAlert.objects.count()
+        session.last_alert_at = ViolationAlert.objects.order_by("-received_at").values_list("received_at", flat=True).first()
         serializer = MonitorSessionSerializer(session)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -86,10 +81,7 @@ class ViolationAlertViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = ViolationAlert.objects.select_related("session", "evidence_file")
-        if self.request.user.is_staff:
-            return queryset
-        return queryset.filter(user=self.request.user)
+        return ViolationAlert.objects.select_related("session", "evidence_file", "user").order_by("-received_at", "-id")
 
 
 class MonitorEvidenceUploadView(APIView):
@@ -101,8 +93,8 @@ class MonitorEvidenceUploadView(APIView):
         if not uploaded:
             return Response({"detail": "Missing file field."}, status=status.HTTP_400_BAD_REQUEST)
 
-        source_mode = request.data.get("source_mode", MonitorSession.SOURCE_PHONE)
-        camera_source = request.data.get("camera_source", "phone-camera")
+        source_mode = MonitorSession.SOURCE_ESP32
+        camera_source = request.data.get("camera_source", "RE-CAM-01")
         guide_name = request.data.get("guide_name", request.user.get_full_name() or request.user.get_username())
         location = request.data.get("location", "Field monitoring preview")
         clip_duration = request.data.get("clip_duration", request.data.get("video_duration", ""))
@@ -116,64 +108,33 @@ class MonitorEvidenceUploadView(APIView):
                     temp_file.write(chunk)
                 temp_path = Path(temp_file.name)
 
-            uploaded.seek(0)
-            secure_file = upload_file(uploaded=uploaded, owner=request.user)
-            session = upsert_active_session(
-                request.user,
-                source_mode=source_mode,
-                camera_source=camera_source,
-                clip_interval_minutes=clip_interval_minutes,
-            )
-            session.last_clip_at = timezone.now()
-            session.last_seen_at = timezone.now()
-            session.save(update_fields=["last_clip_at", "last_seen_at", "updated_at"])
-
-            analysis = analyze_uploaded_evidence(
+            result = process_monitoring_clip(
                 temp_path,
+                owner=request.user,
+                uploaded_name=uploaded.name,
+                content_type=getattr(uploaded, "content_type", "") or "",
                 camera_source=camera_source,
                 source_mode=source_mode,
                 guide_name=guide_name,
                 location=location,
                 clip_duration=clip_duration,
                 clip_interval_minutes=clip_interval_minutes,
+                annotate=False,
+                send_notifications=True,
+                created_by=request.user if request.user.is_staff else None,
             )
-            if analysis is None:
-                try:
-                    delete_secure_blob(secure_file.s3_key)
-                except ImproperlyConfigured:
-                    pass
-                secure_file.delete()
+            if result["alert"] is None:
                 return Response(
                     {
                         "secure_file": None,
                         "deleted_after_processing": True,
-                        "detail": "No violation was detected, so the uploaded clip was deleted after analysis.",
+                        "detail": "No violation was detected, so the uploaded ESP32 clip was deleted after analysis.",
                     },
                     status=status.HTTP_201_CREATED,
                 )
 
-            alert = ViolationAlert.objects.create(
-                user=request.user,
-                session=session,
-                evidence_file=secure_file,
-                source_mode=source_mode,
-                title=analysis["title"],
-                summary=analysis["summary"],
-                severity=analysis["severity"],
-                status=analysis["status"],
-                detected_activity=analysis["detected_activity"],
-                detected_class=analysis.get("detected_class", ""),
-                confidence_score=analysis.get("confidence_score"),
-                camera_source=analysis.get("camera_source", camera_source),
-                guide_name=analysis.get("guide_name", guide_name),
-                location=analysis.get("location", location),
-                video_filename=secure_file.original_name,
-                video_duration=analysis.get("video_duration", clip_duration),
-                evidence_status=analysis.get("evidence_status", "Pending AI review"),
-                recommended_action=analysis.get("recommended_action", "Review the returned footage."),
-                details=analysis.get("details", ""),
-                raw_payload=analysis.get("raw_payload", {}),
-            )
+            secure_file = result["secure_file"]
+            alert = result["alert"]
             serializer = ViolationAlertSerializer(alert)
             return Response(
                 {

@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/user-progress/', include('user_progress.urls')),
     path('api/secure-files/', include('secure_files.urls')),
     path('api/accounts/', include('accounts.urls')),
+    path('api/monitor/', include('monitoring.urls')),
     path('api/ranger-eye/', include('ranger_eye.urls')),
     path('api/ar-training/', include('ar_training.urls')),
     
