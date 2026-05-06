@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'accounts',
     'dashboard.apps.DashboardConfig',
     'monitoring.apps.MonitoringConfig',
+    'ar_training.apps.ArTrainingConfig',
     'rest_framework.authtoken',
     'corsheaders',
     'ranger_eye',

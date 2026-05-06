@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/secure-files/', include('secure_files.urls')),
     path('api/accounts/', include('accounts.urls')),
     path('api/ranger-eye/', include('ranger_eye.urls')),
+    path('api/ar-training/', include('ar_training.urls')),
     
     # Dashboard routes (includes conflicting api/* patterns, so must come after)
     path('', include('dashboard.urls')),
