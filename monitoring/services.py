@@ -21,20 +21,40 @@ _MODEL_CACHE = None
 
 def _candidate_model_paths():
     base_dir = settings.BASE_DIR
-    project_root = base_dir.parent
-    ai_root = project_root / "ParkGuideAI"
+    # Prefer an explicitly configured model path (env var or Django setting)
     configured = os.getenv("MONITOR_MODEL_PATH", "").strip()
+    if not configured:
+        configured = getattr(settings, "MONITOR_MODEL_PATH", "") or ""
 
     candidates = []
     if configured:
         candidates.append(Path(configured))
+
+    # Primary local locations inside the backend project (recommended for cloud deploys)
+    # - <BASE_DIR>/models/monitor.pt
+    # - <BASE_DIR>/monitoring/models/best.pt
+    # - <BASE_DIR>/monitoring/model.pt
     candidates.extend(
         [
+            base_dir / "models" / "monitor.pt",
+            base_dir / "monitoring" / "models" / "best.pt",
+            base_dir / "monitoring" / "model.pt",
+        ]
+    )
+
+    # Backwards-compat fallback to sibling AI repo (kept for local dev convenience)
+    try:
+        project_root = base_dir.parent
+        ai_root = project_root / "ParkGuideAI"
+        candidates.extend([
             ai_root / "runs/train/park_activity_v2/weights/best.pt",
             ai_root / "yolo11s.pt",
             ai_root / "yolo26n.pt",
-        ]
-    )
+        ])
+    except Exception:
+        # safe-ignore if BASE_DIR isn't a Path-like object
+        pass
+
     return candidates
 
 

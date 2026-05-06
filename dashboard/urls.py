@@ -50,7 +50,6 @@ urlpatterns = [
     path('dashboard/badges/', views.dashboard_badges, name='badges'),
     path('dashboard/monitoring/', views.dashboard_monitoring, name='monitoring'),
     path('dashboard/notifications/', views.dashboard_notifications, name='notifications'),
-    path('dashboard/monitor/', views.dashboard_monitor, name='monitor'),
     path('notifications/feed/', views.header_notifications_feed, name='header_notifications_feed'),
     path('notifications/actions/', views.header_notifications_action, name='header_notifications_action'),
     path('dashboard/secure-files/', views.dashboard_secure_files, name='secure_files'),
